@@ -16,7 +16,9 @@ lanza el wizard de modelos (si no hay config o se pide), y permite chatear con A
 param(
     [switch]$Chat,
     [switch]$Setup,
-    [switch]$Status
+    [switch]$Status,
+    [Parameter(ValueFromRemainingArguments = $true)]
+    [string[]]$QuestArgs
 )
 
 $ErrorActionPreference = 'Stop'
@@ -173,16 +175,11 @@ function Show-Menu {
 
 function Launch-Chat {
     Write-Host ''
-    Write-Host '  ▸ Lanzando chat con Atlas...' -ForegroundColor Cyan
-    $hasOpenCode = [bool](Get-Command opencode -ErrorAction SilentlyContinue)
-    if ($hasOpenCode) {
-        Write-Host '  ▸ Abriendo OpenCode con el agente atlas-player...' -ForegroundColor White
-        Write-Host '  ▸ (Escribe tus quests directamente, ej: "haz login form con Zod")' -ForegroundColor DarkGray
-        Write-Host ''
-        opencode --agent atlas-player
-    } else {
-        Write-Host '  [!] opencode no encontrado. Instala OpenCode primero.' -ForegroundColor Yellow
-    }
+    Write-Host '  ▸ Lanzando el chat nativo de ARNES ARGOS...' -ForegroundColor Cyan
+    Write-Host '  ▸ (prompt propio, sin TUI de OpenCode - el motor trabaja por detras)' -ForegroundColor DarkGray
+    Write-Host ''
+    $chat = Join-Path $PSScriptRoot 'argos-chat.ps1'
+    & $chat
 }
 
 function Show-MemoryStatus {
@@ -232,6 +229,11 @@ if ($Chat) {
     Launch-Chat
 } elseif ($Status) {
     Show-MemoryStatus
+} elseif ($QuestArgs.Count -gt 0) {
+    # atlas quest "..." - quest directo via chat nativo
+    $questText = $QuestArgs -join ' '
+    $chat = Join-Path $PSScriptRoot 'argos-chat.ps1'
+    & $chat -Quest $questText
 } else {
     Show-Menu
 }

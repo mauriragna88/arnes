@@ -6,8 +6,8 @@
     "weekly_reset_hour_utc":  0,
     "limits":  {
                    "weekly_tokens_budget":  1000000,
-                   "weekly_tokens_used":  72500,
-                   "weekly_tokens_remaining":  927500,
+                   "weekly_tokens_used":  73500,
+                   "weekly_tokens_remaining":  926500,
                    "warn_threshold_pct":  80,
                    "critical_threshold_pct":  95
                },
@@ -329,11 +329,18 @@
                        "tokens_used":  1000,
                        "quest_id":  "Q-027",
                        "timestamp":  "2026-08-05T21:04:55.4532759-06:00"
+                   },
+                   {
+                       "agent":  "vivi",
+                       "verdict":  "PASS",
+                       "tokens_used":  1000,
+                       "quest_id":  "Q-028",
+                       "timestamp":  "2026-08-05T23:35:29.7724419-06:00"
                    }
                ],
     "stats":  {
-                  "total_quests":  43,
-                  "total_tokens_used":  72500,
+                  "total_quests":  44,
+                  "total_tokens_used":  73500,
                   "avg_tokens_per_quest":  0,
                   "success_rate_pct":  98
               },
