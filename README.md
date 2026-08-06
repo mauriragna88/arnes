@@ -1,6 +1,7 @@
-# ATLAS — Harness RPG de IA para Desarrollo
+# ARNES ARGOS — Harness RPG de IA para Desarrollo
 
 > Rojo y Negro, como el Atlas de la Liga MX.
+> **ARGOS**: el gigante mitológico de los 100 ojos — todo lo ve, todo lo vigila.
 > **16 agentes RPG**: 6 party + 7 auditores/especiales + 2 warden + Atlas orchestrator.
 > **100% independiente**: memoria propia (SQLite+FTS5), SDD/FDD/ADR propios, skills propias.
 > **CERO dependencia** de gentle-ai, engram, openspec o arneses externos.
@@ -22,7 +23,7 @@ cd C:\Users\LapOne Mx\Documents\GitHub\arnes
 atlas
 ```
 
-## 🏢 La Empresa ARNES (16 agentes)
+## 🏢 La Empresa ARNES ARGOS (16 agentes)
 
 | Departamento | Agente | Clase | Modelo |
 |---|---|---|---|

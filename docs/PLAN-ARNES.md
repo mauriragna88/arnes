@@ -1,8 +1,9 @@
-# PLAN ARNES — Roadmap Maestro del Harness
+# PLAN ARNES ARGOS — Roadmap Maestro del Harness
 
 > **Documento de continuidad entre sesiones.**
+> **ARNES ARGOS**: el gigante de los 100 ojos — todo lo ve, todo lo vigila.
 > Creado: 2026-08-05 · Última actualización: 2026-08-05
-> **Estado actual: FASE 1 PENDIENTE — este documento es el punto de retoma para cualquier sesión futura.**
+> **Estado actual: FASE 1-9 COMPLETADAS — ARNES ARGOS v2 listo.**
 
 ---
 
@@ -194,13 +195,25 @@ ATLAS necesita saber → task() al agente → agente busca en SU memoria (arnes.
 - Ubicación: `.arnes/adr/ADR-NNN-slug.md`
 - Conexión a memoria: `amarant/arch-decisions` en arnes.db
 
-### FASE 6 — ATLAS SHELL + GIT
-- [ ] `atlas` → banner ARNES mamalón (ya existe en atlas-init.ps1) → menú
-- [ ] Wizard de configuración con flechas (estilo /models de OpenCode)
-- [ ] Detección de proveedores (Go/OpenAI/NVIDIA) + selector de modelos por agente
-- [ ] Reconfiguración parcial (cambiar solo un agente si pierdes un proveedor)
-- [ ] Chat directo (opción 1 del menú → opencode --agent atlas-player)
-- [ ] Git re-init (el .git está vacío/roto), .gitignore, commit inicial
+### FASE 6 — ATLAS SHELL + GIT ✅ COMPLETADA 2026-08-05
+- [x] `atlas-shell.ps1` — banner ARNES + menú (chat/wizard/memoria/health/novedades)
+- [x] `arnes-picker.ps1` — selector con flechas (estilo /models)
+- [x] `atlas.cmd` — wrapper para ejecutar desde CMD/PowerShell
+- [x] Detección de proveedores (Go/OpenAI/NVIDIA) en el shell
+- [x] Wizard de configuración con flechas (modelos por agente)
+- [x] Reconfiguración parcial: `atlas-shell.ps1 -Setup`
+- [x] Chat directo: opción 1 → opencode --agent atlas-player
+- [x] Git re-init (el .git estaba vacío/roto) ✅ commit inicial 76635d4
+- [x] `.gitignore` (protege secretos, arnes.db, basura)
+- [x] Limpieza: imagen10.jpg + Sin título.jpg eliminados
+- [x] README.md actualizado (instalación, empresa ARNES, memoria, metodologías)
+
+**Detalles técnicos**:
+- Shell: `cli/atlas-shell.ps1` (banner + menú + wizard + chat) — con BOM UTF-8
+- Picker: `cli/arnes-picker.ps1` (flechas ↑/↓, Enter, Q, Esc) — con BOM UTF-8
+- `atlas.cmd` apunta a atlas-shell.ps1
+- Git: 1 commit inicial con todo el ecosistema
+- **Gotcha**: los emojis rompen PS 5.1 sin BOM — usar texto plano + BOM UTF-8 obligatorio
 
 ### FASE 7 — TIDUS (Infrastructure & Growth Warden) ✅ COMPLETADA 2026-08-05
 > **Departamento de Sistemas del harness.** Vigila que el entorno y cada agente tengan recursos suficientes.
