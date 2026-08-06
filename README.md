@@ -80,6 +80,10 @@ sam-counsel, atlas-orchestrate, tidus-tide-check, ragnarok-scout.
 - **OpenCode Go** ($10/mes) — DeepSeek V4 Flash (workhorse), Qwen3.8 Max (Atlas)
 - **OpenAI** (cuenta GPT vía OAuth) — GPT-5.6 Luna para razonamiento
 - **NVIDIA NIM** (gratis) — DeepSeek V4 Flash/Pro sin costo
+- **B.AI** — Claude Opus/Fable, GPT-5.6, Qwen3.8
+
+**Mini-guía completa**: `docs/PROVIDERS-GUIDE.md` — cómo se conecta cada proveedor
+(OAuth de OpenAI, API de NVIDIA, catálogo Go), las URLs y los comandos.
 
 Configuración en `.arnes/config.json` — reconfigurable con `atlas-shell.ps1 -Setup` (wizard con flechas).
 

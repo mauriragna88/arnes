@@ -51,15 +51,15 @@ function Show-AtlasBanner {
     Write-Host ""
     Write-Host "      ▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄" -ForegroundColor DarkRed
     Write-Host ""
-    Write-Host "        █████╗ ██████╗ ███╗   ██╗███████╗███████╗" -ForegroundColor Red
-    Write-Host "       ██╔══██╗██╔══██╗████╗  ██║██╔════╝██╔════╝" -ForegroundColor White
-    Write-Host "       ███████║██████╔╝██╔██╗ ██║█████╗  ███████╗" -ForegroundColor Red
-    Write-Host "       ██╔══██║██╔══██╗██║╚██╗██║██╔══╝  ╚════██║" -ForegroundColor White
-    Write-Host "       ██║  ██║██║  ██║██║ ╚████║███████╗███████║" -ForegroundColor Red
-    Write-Host "       ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝╚══════╝╚══════╝" -ForegroundColor White
+    Write-Host "        █████╗ ██████╗ ██████╗  ██████╗ ███████╗" -ForegroundColor Red
+    Write-Host "       ██╔══██╗██╔══██╗██╔════╝ ██╔═══██╗██╔════╝" -ForegroundColor White
+    Write-Host "       ███████║██████╔╝██║  ███╗██║   ██║███████╗" -ForegroundColor Red
+    Write-Host "       ██╔══██║██╔══██╗██║   ██║██║   ██║╚════██║" -ForegroundColor White
+    Write-Host "       ██║  ██║██║  ██║╚██████╔╝╚██████╔╝███████║" -ForegroundColor Red
+    Write-Host "       ╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝  ╚═════╝ ╚══════╝" -ForegroundColor White
     Write-Host ""
     Write-Host "      ⚔═══════════════════════════════════════════════════════════════════⚔" -ForegroundColor DarkRed
-    Write-Host "      ⚔   ROJO Y NEGRO · EL ORQUESTADOR RPG · ROJO Y NEGRO   ⚔" -ForegroundColor White
+    Write-Host "      ⚔   ARNES ARGOS · EL ORQUESTADOR RPG · LOS 100 OJOS   ⚔" -ForegroundColor White
     Write-Host "      ⚔═══════════════════════════════════════════════════════════════════⚔" -ForegroundColor DarkRed
     Write-Host ""
     Write-Host "      ▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀" -ForegroundColor DarkRed

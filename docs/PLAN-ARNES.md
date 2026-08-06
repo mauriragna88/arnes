@@ -340,6 +340,7 @@ ATLAS necesita saber → task() al agente → agente busca en SU memoria (arnes.
 | `cli/atlas-model-config.ps1` | Configurador de cadena de modelos |
 | `cli/model-catalog.ps1` | Catálogo vivo de modelos (opencode models) |
 | `cli/agent-model-resolver.ps1` | Resuelve modelo por agente contra catálogo |
+| `docs/PROVIDERS-GUIDE.md` | **NUEVO** Mini-guía de conexiones: OAuth OpenAI, API NVIDIA, catálogo Go, URLs |
 | `core/memory-system.md` | Diseño de memoria (engram + fallback JSONL — a migrar a arnes.db) |
 | `core/protocols/` | Schemas de blackboard, sam-digest, handoff |
 | `.arnes/config.json` | Config principal (modelos por agente) |

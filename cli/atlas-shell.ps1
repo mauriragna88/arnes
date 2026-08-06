@@ -34,12 +34,12 @@ function Show-Banner {
     Write-Host ''
     Write-Host "      ▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄" -ForegroundColor DarkRed
     Write-Host ''
-    Write-Host "        █████╗ ██████╗ ███╗   ██╗███████╗███████╗" -ForegroundColor Red
-    Write-Host "       ██╔══██╗██╔══██╗████╗  ██║██╔════╝██╔════╝" -ForegroundColor White
-    Write-Host "       ███████║██████╔╝██╔██╗ ██║█████╗  ███████╗" -ForegroundColor Red
-    Write-Host "       ██╔══██║██╔══██╗██║╚██╗██║██╔══╝  ╚════██║" -ForegroundColor White
-    Write-Host "       ██║  ██║██║  ██║██║ ╚████║███████╗███████║" -ForegroundColor Red
-    Write-Host "       ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝╚══════╝╚══════╝" -ForegroundColor White
+    Write-Host "        █████╗ ██████╗ ██████╗  ██████╗ ███████╗" -ForegroundColor Red
+    Write-Host "       ██╔══██╗██╔══██╗██╔════╝ ██╔═══██╗██╔════╝" -ForegroundColor White
+    Write-Host "       ███████║██████╔╝██║  ███╗██║   ██║███████╗" -ForegroundColor Red
+    Write-Host "       ██╔══██║██╔══██╗██║   ██║██║   ██║╚════██║" -ForegroundColor White
+    Write-Host "       ██║  ██║██║  ██║╚██████╔╝╚██████╔╝███████║" -ForegroundColor Red
+    Write-Host "       ╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝  ╚═════╝ ╚══════╝" -ForegroundColor White
     Write-Host ''
     Write-Host "      ╔═══════════════════════════════════════════════════════════════════╗" -ForegroundColor DarkRed
     Write-Host "      ║   ARNES ARGOS - EL ORQUESTADOR RPG - LOS 100 OJOS   ║" -ForegroundColor White
