@@ -3,8 +3,23 @@
 > **Documento de continuidad entre sesiones.**
 > **ARNES ARGOS**: el gigante de los 100 ojos — todo lo ve, todo lo vigila.
 > **ARGOS = el ENTORNO** (comando `argos` desde cualquier carpeta). **Atlas = el orquestador** dentro.
-> Creado: 2026-08-05 · Última actualización: 2026-08-05
-> **Estado actual: FASE 1-9 COMPLETADAS — ARNES ARGOS v2 listo + comando argos (entorno) operativo.**
+> Creado: 2026-08-05 · Última actualización: 2026-08-05 (cierre de sesión)
+> **Estado actual: ARNES ARGOS v2 completo + comando argos operativo + 3 modos + recommend.**
+
+---
+
+## 🎯 MAÑANA RETOMAMOS AQUÍ (sesión del 2026-08-06)
+
+**Siguiente paso pendiente**: continuar con la visión de configuración del usuario:
+1. ✅ Conexiones GLOBALES (una vez por computadora) — `~/.config/arnes/connections.json`
+2. ✅ argos-recommend (mini-guía inteligente con prioridad ahorro/equilibrio/calidad)
+3. ⏳ **PENDIENTE**: Ragnarok para primera búsqueda (cuando no hay modelos conectados)
+   - Usar el modelo más inteligente disponible para que Ragnarok investigue y recomiende
+   - Preguntar al usuario si le importa ahorro de tokens
+4. ⏳ **PENDIENTE**: probar el flujo completo de proyecto nuevo en una carpeta real de trabajo
+5. ⏳ **PENDIENTE**: decidir si `argos configure` debe usar la recomendación como default
+
+**Para retomar**: `argos` → [4] Recomendación inteligente → luego [3] Configurar modelos
 
 ---
 
