@@ -62,7 +62,15 @@ function Invoke-ArgoQuest {
 
     Write-Host ''
     Write-Host "  [OK] Quest procesado (exit=$exit)" -ForegroundColor Green
-    Write-Host '  (El resultado completo quedo en la sesion de opencode; revisa con: opencode)'
+
+    # === RETROALIMENTACION post-trabajo segun modo ===
+    $interaction = Join-Path $PSScriptRoot 'argos-interaction.ps1'
+    if (Test-Path $interaction) {
+        $mode = (& $interaction get-mode 2>$null)
+        $shortSummary = if ($Message.Length -gt 80) { $Message.Substring(0, 80) + '...' } else { $Message }
+        $result = if ($exit -eq 0) { 'PASS' } else { 'FAIL' }
+        & $interaction feedback -QuestResult $result -QuestType 'general' -QuestSummary "Quest completado: $shortSummary"
+    }
 }
 
 # === Chat interactivo propio ===

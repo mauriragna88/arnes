@@ -211,14 +211,24 @@ function Show-Menu {
     if ($state.has_connections) { Write-Host '    [OK] Conexiones configuradas (.arnes/connections.json)' -ForegroundColor Green } else { Write-Host '    [--] Sin conexiones' -ForegroundColor DarkGray }
     if ($state.has_models) { Write-Host '    [OK] Modelos por agente (.arnes/agent-models.json)' -ForegroundColor Green } else { Write-Host '    [--] Modelos sin configurar' -ForegroundColor DarkGray }
     if ($state.is_argos) { Write-Host '    [OK] Memoria disponible (arnes.db)' -ForegroundColor Green } else { Write-Host '    [--] Sin memoria' -ForegroundColor DarkGray }
+    # Mostrar modo de interaccion actual
+    $interactionScript = Join-Path $ScriptDir 'argos-interaction.ps1'
+    if (Test-Path $interactionScript) {
+        $mode = (& $interactionScript get-mode 2>$null)
+        if ($mode) {
+            $modeColor = switch ($mode) { 'auto' { 'Red' } 'educativo' { 'Yellow' } default { 'Green' } }
+            Write-Host ("    [MODO] Interaccion: {0}" -f $mode.ToUpper()) -ForegroundColor $modeColor
+        }
+    }
     Write-Host ''
 
     Write-Host '  ================================================' -ForegroundColor DarkGray
     Write-Host '  [1] Chat con Atlas (orquestador)' -ForegroundColor White
     Write-Host '  [2] Conectar proveedores (/connect)' -ForegroundColor White
     Write-Host '  [3] Configurar modelos por agente (/configuremodel)' -ForegroundColor White
-    Write-Host '  [4] Estado del entorno (/status)' -ForegroundColor White
-    Write-Host '  [5] Memoria (/memory)' -ForegroundColor White
+    Write-Host '  [4] Modo de interaccion (auto/educativo/mixto)' -ForegroundColor White
+    Write-Host '  [5] Estado del entorno (/status)' -ForegroundColor White
+    Write-Host '  [6] Memoria (/memory)' -ForegroundColor White
     Write-Host '  [Q] Salir' -ForegroundColor White
     Write-Host '  ================================================' -ForegroundColor DarkGray
     Write-Host ''
@@ -228,10 +238,11 @@ function Show-Menu {
         '1' { Launch-Chat }
         '2' { & (Join-Path $ScriptDir 'argos-connect-wizard.ps1'); Read-Host '  Enter para volver'; Show-Menu }
         '3' { Show-ConfigureModels; Read-Host '  Enter para volver'; Show-Menu }
-        '4' { Show-Status; Read-Host '  Enter para volver'; Show-Menu }
-        '5' { $mem = Join-Path $ScriptDir 'arnes-memory.ps1'; & $mem stats; Read-Host '  Enter para volver'; Show-Menu }
-        'q' { Write-Host '  Adios. Los 100 ojos te observan. 👁️'; exit 0 }
-        'Q' { Write-Host '  Adios. Los 100 ojos te observan. 👁️'; exit 0 }
+        '4' { & $interactionScript wizard; Read-Host '  Enter para volver'; Show-Menu }
+        '5' { Show-Status; Read-Host '  Enter para volver'; Show-Menu }
+        '6' { $mem = Join-Path $ScriptDir 'arnes-memory.ps1'; & $mem stats; Read-Host '  Enter para volver'; Show-Menu }
+        'q' { Write-Host '  Adios. Los 100 ojos te observan.'; exit 0 }
+        'Q' { Write-Host '  Adios. Los 100 ojos te observan.'; exit 0 }
         default { Show-Menu }
     }
 }
