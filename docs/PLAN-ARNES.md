@@ -2,8 +2,9 @@
 
 > **Documento de continuidad entre sesiones.**
 > **ARNES ARGOS**: el gigante de los 100 ojos — todo lo ve, todo lo vigila.
+> **ARGOS = el ENTORNO** (comando `argos` desde cualquier carpeta). **Atlas = el orquestador** dentro.
 > Creado: 2026-08-05 · Última actualización: 2026-08-05
-> **Estado actual: FASE 1-9 COMPLETADAS — ARNES ARGOS v2 listo.**
+> **Estado actual: FASE 1-9 COMPLETADAS — ARNES ARGOS v2 listo + comando argos (entorno) operativo.**
 
 ---
 
@@ -334,6 +335,11 @@ ATLAS necesita saber → task() al agente → agente busca en SU memoria (arnes.
 
 | Ruta | Función |
 |---|---|
+| `cli/argos.ps1` | **NUEVO** El ENTORNO: `argos` desde cualquier carpeta — detecta proyecto, /connect, /configuremodel, chat |
+| `cli/argos-connect.ps1` | **NUEVO** Gestor de conexiones (connections.json propio, secrets protegidos) |
+| `cli/argos-connect-wizard.ps1` | **NUEVO** Wizard interactivo de conexiones (flechas, estilo /connect propio) |
+| `cli/argos-chat.ps1` | **NUEVO** Chat nativo con Atlas (prompt [ARGOS], sin TUI ajena) |
+| `cli/argos.cmd` | **NUEVO** Wrapper `argos` en PATH (ASCII, sin BOM) |
 | `cli/atlas-init.ps1` | Inicializador con banner ARNES mamalón (tiene BOM UTF-8) |
 | `cli/atlas.ps1` | Launcher principal (onboarding, sync, lanza OpenCode/Codex/Claude) |
 | `cli/atlas-ff.ps1` | Command center (models, routes, doctor, configure) |

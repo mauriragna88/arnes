@@ -11,16 +11,20 @@
 ## 🚀 Instalación rápida
 
 ```powershell
-# 1. Entra al proyecto
-cd C:\Users\LapOne Mx\Documents\GitHub\arnes
+# 1. Entra a tu carpeta de trabajo
+cd C:\Users\LapOne Mx\Documents\GitHub\arnes   # o cualquier proyecto
 
-# 2. Inicializa el harness (banner + agentes + memoria)
-.\cli\atlas-init.ps1
+# 2. Abre ARNES ARGOS (el entorno)
+argos
+#    → detecta si el proyecto es nuevo
+#    → si es nuevo: inicializa → conecta proveedores (/connect) → configura modelos (/configuremodel)
+#    → si ya está: menú con chat, connect, configure, status, memory
 
-# 3. Abre el Atlas Shell (banner + menú + wizard + chat)
-.\cli\atlas-shell.ps1
-# o simplemente:
-atlas
+# Comandos directos:
+argos connect       # conectar proveedores (nuestro /connect)
+argos configure     # configurar modelo por agente (nuestro /configuremodel)
+argos chat          # chat con Atlas (orquestador)
+argos status        # estado del entorno
 ```
 
 ## 🏢 La Empresa ARNES ARGOS (16 agentes)
