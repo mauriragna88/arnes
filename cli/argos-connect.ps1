@@ -29,9 +29,13 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $Root = Resolve-Path (Join-Path $PSScriptRoot '..')
+# === RUTA GLOBAL: conexiones se configuran UNA VEZ por computadora ===
+# No en el proyecto - es config de la maquina, no del proyecto.
+$GlobalConfigDir = Join-Path $env:USERPROFILE '.config\arnes'
+if (-not (Test-Path $GlobalConfigDir)) { New-Item -ItemType Directory -Path $GlobalConfigDir -Force | Out-Null }
+$ConnPath = Join-Path $GlobalConfigDir 'connections.json'
 $ProjectDir = (Get-Location).Path
 $ArnesDir = Join-Path $ProjectDir '.arnes'
-$ConnPath = Join-Path $ArnesDir 'connections.json'
 
 # Proveedores conocidos (defaults - el usuario puede agregar custom)
 $KNOWN_PROVIDERS = @{

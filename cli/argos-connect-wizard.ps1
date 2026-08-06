@@ -19,9 +19,12 @@ param()
 
 $ErrorActionPreference = 'Stop'
 $Root = Resolve-Path (Join-Path $PSScriptRoot '..')
+# === RUTA GLOBAL: conexiones UNA VEZ por computadora ===
+$GlobalConfigDir = Join-Path $env:USERPROFILE '.config\arnes'
+if (-not (Test-Path $GlobalConfigDir)) { New-Item -ItemType Directory -Path $GlobalConfigDir -Force | Out-Null }
+$ConnPath = Join-Path $GlobalConfigDir 'connections.json'
 $ProjectDir = (Get-Location).Path
 $ArnesDir = Join-Path $ProjectDir '.arnes'
-$ConnPath = Join-Path $ArnesDir 'connections.json'
 $Picker = Join-Path $PSScriptRoot 'arnes-picker.ps1'
 $ConnMgr = Join-Path $PSScriptRoot 'argos-connect.ps1'
 

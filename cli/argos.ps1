@@ -20,7 +20,7 @@ argos init               -> inicializar proyecto
 [CmdletBinding()]
 param(
     [Parameter(Position = 0)]
-    [ValidateSet('', 'init', 'connect', 'configure', 'chat', 'status', 'models', 'memory')]
+    [ValidateSet('', 'init', 'connect', 'configure', 'chat', 'status', 'models', 'memory', 'recommend', 'mode')]
     [string]$Command = '',
 
     [Parameter(ValueFromRemainingArguments = $true)]
@@ -226,9 +226,10 @@ function Show-Menu {
     Write-Host '  [1] Chat con Atlas (orquestador)' -ForegroundColor White
     Write-Host '  [2] Conectar proveedores (/connect)' -ForegroundColor White
     Write-Host '  [3] Configurar modelos por agente (/configuremodel)' -ForegroundColor White
-    Write-Host '  [4] Modo de interaccion (auto/educativo/mixto)' -ForegroundColor White
-    Write-Host '  [5] Estado del entorno (/status)' -ForegroundColor White
-    Write-Host '  [6] Memoria (/memory)' -ForegroundColor White
+    Write-Host '  [4] Recomendacion inteligente de modelos (/recommend)' -ForegroundColor White
+    Write-Host '  [5] Modo de interaccion (auto/educativo/mixto)' -ForegroundColor White
+    Write-Host '  [6] Estado del entorno (/status)' -ForegroundColor White
+    Write-Host '  [7] Memoria (/memory)' -ForegroundColor White
     Write-Host '  [Q] Salir' -ForegroundColor White
     Write-Host '  ================================================' -ForegroundColor DarkGray
     Write-Host ''
@@ -238,9 +239,10 @@ function Show-Menu {
         '1' { Launch-Chat }
         '2' { & (Join-Path $ScriptDir 'argos-connect-wizard.ps1'); Read-Host '  Enter para volver'; Show-Menu }
         '3' { Show-ConfigureModels; Read-Host '  Enter para volver'; Show-Menu }
-        '4' { & $interactionScript wizard; Read-Host '  Enter para volver'; Show-Menu }
-        '5' { Show-Status; Read-Host '  Enter para volver'; Show-Menu }
-        '6' { $mem = Join-Path $ScriptDir 'arnes-memory.ps1'; & $mem stats; Read-Host '  Enter para volver'; Show-Menu }
+        '4' { & (Join-Path $ScriptDir 'argos-recommend.ps1'); Read-Host '  Enter para volver'; Show-Menu }
+        '5' { & $interactionScript wizard; Read-Host '  Enter para volver'; Show-Menu }
+        '6' { Show-Status; Read-Host '  Enter para volver'; Show-Menu }
+        '7' { $mem = Join-Path $ScriptDir 'arnes-memory.ps1'; & $mem stats; Read-Host '  Enter para volver'; Show-Menu }
         'q' { Write-Host '  Adios. Los 100 ojos te observan.'; exit 0 }
         'Q' { Write-Host '  Adios. Los 100 ojos te observan.'; exit 0 }
         default { Show-Menu }
@@ -277,6 +279,8 @@ switch ($Command) {
     'chat' { Launch-Chat }
     'status' { Show-Status }
     'models' { Show-ConfigureModels }
+    'recommend' { & (Join-Path $ScriptDir 'argos-recommend.ps1') -Apply }
+    'mode' { & (Join-Path $ScriptDir 'argos-interaction.ps1') wizard }
     'memory' { $mem = Join-Path $ScriptDir 'arnes-memory.ps1'; & $mem stats }
     default {
         # Detectar proyecto nuevo
