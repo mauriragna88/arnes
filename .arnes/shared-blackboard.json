@@ -1,0 +1,163 @@
+﻿{
+    "version":  "1.0.0",
+    "updated_at":  "2026-08-04T14:00:00-06:00",
+    "updated_by":  "atlas",
+    "last_quest_id":  "Q-022",
+    "patterns":  [
+
+                 ],
+    "agent_learnings":  {
+                            "vivi":  [
+
+                                     ],
+                            "eiko":  [
+
+                                     ],
+                            "ansem":  [
+
+                                      ],
+                            "kuja":  [
+
+                                     ],
+                            "amarant":  [
+
+                                        ],
+                            "eremez":  [
+
+                                       ],
+                            "auron":  [
+
+                                      ],
+                            "quina":  [
+
+                                      ]
+                        },
+    "failed_attempts":  [
+                            {
+                                "quest_id":  "Q-002",
+                                "agent":  "ansem",
+                                "error":  "Circuit breaker after 3 fails in window",
+                                "resolution":  "Agent blocked for 30min. Consider pairing with Eiko or Auron for support on next backend quest.",
+                                "timestamp":  "2026-07-28T18:56:02-06:00",
+                                "repeated_in":  [
+
+                                                ]
+                            }
+                        ],
+    "party_config_history":  [
+                                 {
+                                     "quest_type":  "frontend",
+                                     "party":  [
+                                                   "vivi",
+                                                   "eiko"
+                                               ],
+                                     "success_rate":  0.97,
+                                     "total_quests":  30,
+                                     "last_used_quest":  "Q-022"
+                                 },
+                                 {
+                                     "quest_type":  "backend",
+                                     "party":  [
+                                                   "ansem",
+                                                   "eiko"
+                                               ],
+                                     "success_rate":  0.0,
+                                     "total_quests":  1,
+                                     "last_used_quest":  "Q-002"
+                                 },
+                                 {
+                                     "quest_type":  "fix",
+                                     "party":  [
+                                                   "kuja",
+                                                   "eiko"
+                                               ],
+                                     "success_rate":  1.0,
+                                     "total_quests":  2,
+                                     "last_used_quest":  "Q-008"
+                                 }
+                             ],
+    "trust_scores":  {
+                         "vivi":  {
+                                      "score":  0.97,
+                                      "trend":  "stable",
+                                      "quests_with_party":  30,
+                                      "recent_fail_count":  0,
+                                      "quests_since_last_fail":  30
+                                  },
+                         "eiko":  {
+                                      "score":  1.0,
+                                      "trend":  "stable",
+                                      "quests_with_party":  2,
+                                      "recent_fail_count":  0,
+                                      "quests_since_last_fail":  2
+                                  },
+                         "ansem":  {
+                                       "score":  0.5,
+                                       "trend":  "falling",
+                                       "quests_with_party":  1,
+                                       "recent_fail_count":  1,
+                                       "quests_since_last_fail":  0,
+                                       "comment":  "Circuit breaker triggered in Q-002. Needs recovery quest."
+                                   },
+                         "kuja":  {
+                                      "score":  1.0,
+                                      "trend":  "stable",
+                                      "quests_with_party":  2,
+                                      "recent_fail_count":  0,
+                                      "quests_since_last_fail":  2
+                                  },
+                         "amarant":  {
+                                         "score":  1.0,
+                                         "trend":  "n/a",
+                                         "quests_with_party":  0,
+                                         "comment":  "untested"
+                                     },
+                         "eremez":  {
+                                        "score":  1.0,
+                                        "trend":  "n/a",
+                                        "quests_with_party":  0,
+                                        "comment":  "untested"
+                                    },
+                         "auron":  {
+                                       "score":  1.0,
+                                       "trend":  "n/a",
+                                       "quests_with_party":  0,
+                                       "comment":  "untested - recommended for Ansem pairing"
+                                   },
+                         "quina":  {
+                                       "score":  1.0,
+                                       "trend":  "n/a",
+                                       "quests_with_party":  0,
+                                       "comment":  "banker role - always active for token tracking"
+                                   },
+                         "bran":  {
+                                      "score":  1.0,
+                                      "trend":  "n/a",
+                                      "quests_with_party":  0,
+                                      "comment":  "advisory only"
+                                  },
+                         "varys":  {
+                                       "score":  1.0,
+                                       "trend":  "n/a",
+                                       "quests_with_party":  38,
+                                       "comment":  "always active"
+                                   },
+                         "tywin":  {
+                                       "score":  1.0,
+                                       "trend":  "n/a",
+                                       "quests_with_party":  0,
+                                       "comment":  "always active"
+                                   },
+                         "sam":  {
+                                     "score":  1.0,
+                                     "trend":  "n/a",
+                                     "quests_with_party":  0,
+                                     "comment":  "always active"
+                                 }
+                     },
+    "circuit_breaker_state":  {
+                                  "blocked_agents":  [
+
+                                                     ]
+                              }
+}

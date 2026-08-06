@@ -1,0 +1,47 @@
+# ARNES - Git Ignore
+# Protege secretos y artefactos locales del harness
+
+# ===== Secretos y configuracion local =====
+.arnes/config.json
+.arnes/arnes.db
+.arnes/*.bak.*
+.env
+.env.*
+*.local
+
+# ===== Artefactos del harness (regenerables) =====
+.arnes/memory/export/
+.arnes/loop-state.json
+.arnes/circuit-breaker.json
+
+# ===== Credenciales OpenCode =====
+~/.config/opencode/auth.json
+auth.json
+
+# ===== Node =====
+node_modules/
+dist/
+build/
+.next/
+out/
+coverage/
+
+# ===== Python =====
+__pycache__/
+*.pyc
+*.pyo
+
+# ===== Basura del sistema =====
+Thumbs.db
+Desktop.ini
+*.log
+.DS_Store
+
+# ===== Archivos temporales =====
+*.tmp
+*.temp
+*~
+
+# ===== Imagenes basura =====
+imagen10.jpg
+Sin título.jpg

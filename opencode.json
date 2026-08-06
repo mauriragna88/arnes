@@ -1,0 +1,115 @@
+{
+  "$schema": "https://opencode.ai/schema.json",
+  "agent": {
+    "atlas": {
+      "description": "Atlas RPG Player - orquestador RPG rojo/negro con auto-loop",
+      "mode": "primary",
+      "prompt": "{file:./core/atlas-player.agent.md}",
+      "tools": {
+        "bash": true,
+        "delegate": true,
+        "read": true,
+        "edit": false,
+        "write": false
+      }
+    },
+    "vivi": {
+      "description": "Vivi (Mage) - Frontend DPS. React, Tailwind, design-systems. Siempre con Eiko.",
+      "mode": "subagent",
+      "prompt": "{file:./core/classes/mage.agent.md}",
+      "category": "visual-engineering",
+      "tools": { "bash": true, "edit": true, "read": true, "write": true }
+    },
+    "eiko": {
+      "description": "Eiko (Cleric) - Healer/DevOps. CI/CD, Docker, deploy, build fixes. Support de Vivi.",
+      "mode": "subagent",
+      "prompt": "{file:./core/classes/eiko.agent.md}",
+      "category": "deep",
+      "tools": { "bash": true, "edit": true, "read": true, "write": true }
+    },
+    "ansem": {
+      "description": "Ansem (Paladin) - Backend Tank. API, Supabase, Zod, server actions.",
+      "mode": "subagent",
+      "prompt": "{file:./core/classes/paladin.agent.md}",
+      "category": "deep",
+      "tools": { "bash": true, "edit": true, "read": true, "write": true }
+    },
+    "kuja": {
+      "description": "Kuja (Rogue) - QA/Security. Vitest, Playwright, OWASP.",
+      "mode": "subagent",
+      "prompt": "{file:./core/classes/rogue.agent.md}",
+      "category": "deep",
+      "tools": { "bash": true, "edit": true, "read": true, "write": true }
+    },
+    "amarant": {
+      "description": "Amarant (Monk) - Architecture/Strategist. SDD, clean-arch, system design.",
+      "mode": "subagent",
+      "prompt": "{file:./core/classes/monk.agent.md}",
+      "category": "ultrabrain",
+      "tools": { "bash": true, "read": true, "write": true }
+    },
+    "eremez": {
+      "description": "Eremez (Ranger) - Research/Librarian. Context7, web search, codebase grep.",
+      "mode": "subagent",
+      "prompt": "{file:./core/classes/ranger.agent.md}",
+      "category": "quick",
+      "tools": { "bash": true, "read": true, "webfetch": true, "websearch_web_search_exa": true }
+    },
+    "bard": {
+      "description": "Bard - Support creativo. Songs, morale boost, documentation flavor.",
+      "mode": "subagent",
+      "prompt": "{file:./core/classes/bard.agent.md}",
+      "category": "writing",
+      "tools": { "bash": true, "read": true, "write": true }
+    },
+    "varys": {
+      "description": "Varys (Spider) - Tracker/Hand-off. Observa cada accion del party, reporta a Atlas.",
+      "mode": "subagent",
+      "prompt": "{file:./core/auditors/varys.agent.md}",
+      "category": "unspecified-high",
+      "tools": { "bash": true, "read": true, "delegate": true }
+    },
+    "varys-doc": {
+      "description": "Varys Documentalist - Doc auditor. Drift detection, secret leak scan, typo hunter.",
+      "mode": "subagent",
+      "prompt": "{file:./core/auditors/varys-documentalist.agent.md}",
+      "category": "deep",
+      "tools": { "bash": true, "read": true, "grep": true }
+    },
+    "tywin": {
+      "description": "Tywin (Verifier) - PASS/FAIL judge. Output quality, RPG compliance.",
+      "mode": "subagent",
+      "prompt": "{file:./core/auditors/tywin.agent.md}",
+      "category": "deep",
+      "tools": { "bash": true, "read": true }
+    },
+    "sam": {
+      "description": "Sam (Elder Counselor) - Memory brain of Atlas. Historical patterns, risk assessment.",
+      "mode": "subagent",
+      "prompt": "{file:./core/auditors/sam.agent.md}",
+      "category": "ultrabrain",
+      "tools": { "bash": true, "read": true, "delegate": true }
+    },
+    "auron": {
+      "description": "Auron (Security Warden) - OWASP, RLS, auth, secrets audit.",
+      "mode": "subagent",
+      "prompt": "{file:./core/auditors/auron.agent.md}",
+      "category": "deep",
+      "tools": { "bash": true, "read": true, "grep": true }
+    },
+    "bran": {
+      "description": "Bran (Seer/Strategist) - Project tier, resource allocation, growth opportunities.",
+      "mode": "subagent",
+      "prompt": "{file:./core/auditors/bran.agent.md}",
+      "category": "ultrabrain",
+      "tools": { "bash": true, "read": true, "delegate": true }
+    },
+    "quina": {
+      "description": "Quina (Token Banker) - Budget tracking, /status reports, threshold alerts.",
+      "mode": "subagent",
+      "prompt": "{file:./core/auditors/quina.agent.md}",
+      "category": "quick",
+      "tools": { "bash": true, "read": true }
+    }
+  }
+}
