@@ -4,6 +4,7 @@
 # ===== Secretos y configuracion local =====
 .arnes/config.json
 .arnes/arnes.db
+.arnes/connections.json
 .arnes/*.bak.*
 .env
 .env.*
