@@ -34,7 +34,7 @@ if (-not (Get-Command pi -ErrorAction SilentlyContinue)) {
     Write-Host '  [ARGOS] FALLO: pi no instalado' -ForegroundColor Red
     exit 1
 }
-$sp = (& pi list 2>&1 | Out-String)
+$sp = & { $ErrorActionPreference = 'Continue'; (& pi list 2>&1 | Out-String) }
 if ($sp -notmatch 'superpowers') {
     Write-Host '  [ARGOS] AVISO: superpowers no visible en pi list' -ForegroundColor Yellow
 }
