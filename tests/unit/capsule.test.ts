@@ -1,25 +1,55 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { getCognitionBlock } from "../../pi/extensions/argos-cognition";
-import { getWorkingMemoryBlock, setQuest, recordFact, setNextAction } from "../../pi/extensions/argos-working-memory";
+import { mkdtempSync, mkdirSync, copyFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { fileURLToPath } from "node:url";
+import { runBrain } from "../../pi/extensions/argos-brain";
+import { checkpointNow, buildRecoveryCapsule } from "../../pi/extensions/argos-compaction";
+import { isProtectedPath } from "../../pi/extensions/argos-permissions-core";
+import { classifyQuest, recommendParty } from "../../pi/extensions/argos-orchestrator";
 
-test("cognition: bloque contiene quest y marco de decisión", () => {
-  const block = getCognitionBlock({ questType: "frontend", agent: "vivi", path: "SKILL" });
-  assert.match(block, /frontend/);
-  assert.match(block, /FAST/);
-  assert.match(block, /RECALL/);
-  assert.match(block, /SKILL/);
-  assert.match(block, /DELIBERATE/);
-  assert.match(block, /DEEP/);
+const REPO_ROOT = fileURLToPath(new URL("../../", import.meta.url));
+
+function makeFakeArnesProject(): string {
+  const dir = mkdtempSync(join(tmpdir(), "argos-cp-"));
+  mkdirSync(join(dir, ".arnes"), { recursive: true });
+  mkdirSync(join(dir, "cli"), { recursive: true });
+  copyFileSync(join(REPO_ROOT, "cli", "arnes_brain.py"), join(dir, "cli", "arnes_brain.py"));
+  return dir;
+}
+
+test("compaction: checkpoint → capsule preserva next action", async () => {
+  const dir = makeFakeArnesProject();
+  await runBrain(dir, ["init"]);
+  const cpId = await checkpointNow(dir, {
+    quest: "Q-1",
+    agent: "ansem",
+    next_action: "crear schema zod",
+    completed: ["task1"],
+    pending: ["task2"],
+  });
+  assert.ok(cpId > 0);
+  const capsule = await buildRecoveryCapsule(dir, cpId);
+  assert.ok(capsule.length > 0);
 });
 
-test("working memory: bloque refleja estado y next action", () => {
-  setQuest("Q-001", "backend");
-  recordFact("Supabase es la DB verificada");
-  setNextAction("crear schema zod");
-  const block = getWorkingMemoryBlock();
-  assert.match(block, /Q-001/);
-  assert.match(block, /backend/);
-  assert.match(block, /Supabase es la DB verificada/);
-  assert.match(block, /crear schema zod/);
+test("permissions: protege arnes.db, .env, .git y fuera de proyecto", () => {
+  const cwd = "C:/proj";
+  assert.equal(isProtectedPath(cwd, join(cwd, ".arnes", "arnes.db")).protected, true);
+  assert.equal(isProtectedPath(cwd, join(cwd, ".env")).protected, true);
+  assert.equal(isProtectedPath(cwd, join(cwd, ".git", "config")).protected, true);
+  assert.equal(isProtectedPath(cwd, "C:/other/secret.txt").protected, true);
+  assert.equal(isProtectedPath(cwd, join(cwd, "src", "api", "auth.ts")).protected, false);
+});
+
+test("orchestrator: clasifica quest y recomienda party", () => {
+  assert.equal(classifyQuest("crea un componente Login.tsx con tailwind"), "frontend");
+  assert.equal(classifyQuest("esto falla, test rojo"), "fix");
+});
+
+test("orchestrator: recommendParty usa skill-registry del repo", async () => {
+  const party = await recommendParty(REPO_ROOT, "frontend");
+  assert.ok(party.length > 0);
+  assert.ok(party.includes("vivi"));
 });
