@@ -3,8 +3,27 @@ import assert from "node:assert/strict";
 import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { buildAgentCatalog } from "../../pi/extensions/argos-party";
 import { loadAgentModels, resolveModel } from "../../pi/extensions/argos-model-router";
+import { discoverSkills } from "../../pi/extensions/argos-skills";
+import { existsSync, readFileSync } from "node:fs";
+import { join as joinPath } from "node:path";
+
+const REPO = fileURLToPath(new URL("../../", import.meta.url));
+
+test("role-skills: el generador produjo argos-atlas y argos-vivi con frontmatter valido", () => {
+  const atlas = joinPath(REPO, "pi/skills/argos-atlas/SKILL.md");
+  assert.ok(existsSync(atlas), "argos-atlas/SKILL.md existe");
+  assert.match(readFileSync(atlas, "utf-8"), /name: argos-atlas/);
+  assert.ok(existsSync(joinPath(REPO, "pi/skills/argos-vivi/SKILL.md")));
+});
+
+test("discoverSkills: encuentra role-skills ARGOS y superpowers", () => {
+  const skills = discoverSkills(REPO);
+  assert.ok(skills.some((s) => s.name === "argos-atlas"));
+  assert.ok(skills.some((s) => s.name === "systematic-debugging"));
+});
 
 test("catalog: construye agentes desde fuentes canónicas", async () => {
   const dir = mkdtempSync(join(tmpdir(), "argos-cat-"));
@@ -15,10 +34,10 @@ test("catalog: construye agentes desde fuentes canónicas", async () => {
   writeFileSync(join(dir, "core/auditors/tywin.agent.md"), "# Tywin - Verifier");
   const cards = await buildAgentCatalog(dir);
   assert.ok(cards.length >= 3);
-  const mage = cards.find((c) => c.id === "mage");
-  assert.ok(mage);
-  assert.equal(mage.role, "Frontend");
-  assert.equal(mage.displayName, "Vivi");
+  const vivi = cards.find((c) => c.id === "vivi"); // mage.agent.md → id RPG vivi
+  assert.ok(vivi);
+  assert.equal(vivi.role, "Frontend");
+  assert.equal(vivi.displayName, "Vivi");
   const tywin = cards.find((c) => c.id === "tywin");
   assert.ok(tywin);
   assert.equal(tywin.role, "Verifier/Memory Judge");

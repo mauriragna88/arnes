@@ -13,23 +13,19 @@ export interface AgentCard {
   topics: string[];
 }
 
+const FILE_TO_AGENT: Record<string, string> = {
+  "atlas-player": "atlas", mage: "vivi", paladin: "ansem", rogue: "kuja",
+  monk: "amarant", ranger: "eremez", bard: "bard", eiko: "eiko", tidus: "tidus",
+  ragnarok: "ragnarok", auron: "auron", bran: "bran", quina: "quina", varys: "varys",
+  tywin: "tywin", sam: "sam", "varys-documentalist": "varys-documentalist",
+};
+
 const ROLE_HINTS: Record<string, string> = {
-  atlas: "Executive / Orchestrator",
-  mage: "Frontend",
-  paladin: "Backend",
-  rogue: "QA",
-  monk: "Architecture",
-  ranger: "Research",
-  bard: "Continuous Learning",
-  eiko: "DevOps",
-  tidus: "Infrastructure",
-  ragnarok: "Providers/Tooling",
-  auron: "Security",
-  bran: "Analysis/Progress",
-  quina: "Token Budget",
-  varys: "Evidence/Provenance",
-  tywin: "Verifier/Memory Judge",
-  sam: "Archivist/Consolidation",
+  atlas: "Executive / Orchestrator", vivi: "Frontend", ansem: "Backend", kuja: "QA",
+  eiko: "DevOps", amarant: "Architecture", eremez: "Research", auron: "Security",
+  bran: "Analysis/Progress", quina: "Token Budget", varys: "Evidence/Provenance",
+  tywin: "Verifier/Memory Judge", sam: "Archivist/Consolidation", bard: "Continuous Learning",
+  tidus: "Infrastructure", ragnarok: "Providers/Tooling", "varys-documentalist": "Doc Auditor",
 };
 
 export async function buildAgentCatalog(cwd: string): Promise<AgentCard[]> {
@@ -43,7 +39,8 @@ export async function buildAgentCatalog(cwd: string): Promise<AgentCard[]> {
   ] as const) {
     if (!existsSync(dir)) continue;
     for (const f of readdirSync(dir).filter((f) => f.endsWith(".agent.md"))) {
-      const id = f.replace(".agent.md", "");
+      const fileId = f.replace(".agent.md", "");
+      const id = FILE_TO_AGENT[fileId] ?? fileId;
       const firstLine =
         readFileSync(join(dir, f), "utf-8")
           .split("\n")
