@@ -159,7 +159,7 @@ Claude reconocera el agente Atlas del `claude_desktop_config.json`.
 | `/resume` | Resume auto-loop |
 | `/heal` | Forzar Eiko Mend (reset estado roto) |
 | `/class <name>` | Override party: usar solo un miembro (ej: `/class vivi`) |
-| `/memory` | Muestra memoria engram de todos los miembros |
+| `/memory` | Muestra memoria de todos los miembros (arnes.db) |
 | `/memory vivi` | Muestra solo memoria de Vivi |
 | `/save` | Guarda el estado actual en `.arnes/save/` (handoff) |
 | `/load` | Carga un estado guardado para continuar despues |
@@ -190,9 +190,9 @@ Atlas decide automaticamente:
 - Fallback: otro miembro toma su rol
 - Si no hay fallback → pausa usuario
 
-## Memoria Multi-Agente (engram)
+## Memoria Multi-Agente (arnes.db)
 
-Cada miembro guarda en su namespace engram:
+Cada miembro guarda en su namespace propio:
 - Vivi: `vivi://ui-patterns`, `vivi://components-built`
 - Eiko: `eiko://build-failures`, `eiko://vivi-care`
 - Ansem: `ansem://schemas`, `ansem://rls-policies`

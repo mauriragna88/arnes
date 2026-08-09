@@ -46,11 +46,15 @@ opencode auth login      # → selecciona "OpenCode Go"
 
 ### OpenAI (cuenta GPT — OAuth, NO API key)
 ```bash
+argos connect            # → elige "openai" → verifica la sesion y la marca conectada
+                         #   (si aun no hay sesion, lanza el flujo real de autorizacion)
+# Manual (equivalente):
 opencode auth login      # → selecciona "OpenAI"
                          # → elige "ChatGPT Plus/Pro (Codex Subscription)"
                          # → se abre el navegador → te logueas con tu cuenta
                          # → OpenCode detecta tu plan automáticamente
 # Ya autenticado: "OpenAI (oauth)"
+# Sesion guardada en ~/.local/share/opencode/auth.json (persiste entre sesiones)
 # Modelos: openai/gpt-5.6-sol, openai/gpt-5.6-terra, openai/gpt-5.6-luna...
 ```
 

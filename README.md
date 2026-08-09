@@ -1,65 +1,202 @@
-# ARNES ARGOS — Harness RPG de IA para Desarrollo
+# ARNES ARGOS — Harness RPG de IA con 16 agentes
 
-> Rojo y Negro, como el Atlas de la Liga MX.
 > **ARGOS**: el gigante mitológico de los 100 ojos — todo lo ve, todo lo vigila.
-> **16 agentes RPG**: 6 party + 7 auditores/especiales + 2 warden + Atlas orchestrator.
-> **100% independiente**: memoria propia (SQLite+FTS5), SDD/FDD/ADR propios, skills propias.
-> **CERO dependencia** de gentle-ai, engram, openspec o arneses externos.
+> **Rojo y Negro**, como el Atlas de la Liga MX.
+> 16 agentes RPG con memoria propia, metodologías propias y cero dependencias externas obligatorias.
+
+**ARNES ARGOS** es un harness de desarrollo con 16 agentes RPG (Atlas, Vivi, Ansem, Kuja, Eiko, Amarant, Eremez, Auron, Bran, Quina, Varys, Tywin, Sam, Bard, Tidus, Ragnarok) que orquesta tus proyectos: cada agente tiene su **memoria propia** (SQLite + FTS5), su **modelo de IA configurado**, su **skill propia** y participa en flujos **SDD / FDD / TDD / ADR** propios.
 
 ---
 
-## 🚀 Instalación rápida
+## ✨ Características
+
+- **16 agentes RPG** con roles: frontend, backend, QA, DevOps, arquitectura, seguridad, research, infraestructura, compras...
+- **Modelo por agente**: cada agente usa SU modelo (Atlas→Qwen3.8 Max, razonamiento→GPT-5.6 Luna, volumen→DeepSeek V4 Flash...). Uso de tokens por modelo real.
+- **Memoria propia** (`arnes.db` SQLite + FTS5): los agentes buscan HECHOS antes de actuar (anti-alucinación por diseño).
+- **Knowledge Graph**: relaciones entre componentes, librerías y agentes.
+- **Configuración UNA vez por máquina**: conexiones de proveedores y modelos por agente se guardan en `~/.config/arnes/` y se despliegan a cualquier proyecto.
+- **Metodologías propias**: SDD, FDD, TDD y ADR sin herramientas externas.
+- **Multiplataforma**: Windows (PowerShell), macOS/Linux (PowerShell Core) y **Docker** para cualquier PC.
+- **Instalable vía npm** (`npm install -g arnes-argos`) o con el instalador directo.
+
+---
+
+## 📋 Requisitos
+
+| # | Herramienta | Por qué | Verificar con | Windows | macOS/Linux |
+|---|---|---|---|---|---|
+| 1 | **PowerShell** | El CLI del harness | `$PSVersionTable.PSVersion` | 5.1+ (preinstalado) | PowerShell Core 7+ (`pwsh`) |
+| 2 | **Python 3.8+** | Memoria (arnes.db, solo stdlib) | `python --version` y `python -c "import sqlite3"` | [python.org](https://python.org) | preinstalado |
+| 3 | **Node.js 16+** | Instalador npm + OpenCode CLI | `node --version` | [nodejs.org](https://nodejs.org) | [nodejs.org](https://nodejs.org) |
+| 4 | **npm** | Instalar el paquete y OpenCode | `npm --version` | viene con Node | viene con Node |
+| 5 | **OpenCode CLI** | Motor de agentes | `opencode --version` | `npm i -g opencode-ai` | `npm i -g opencode-ai` |
+| 6 | **Git** | Instalar y flujo de trabajo | `git --version` | [git-scm.com](https://git-scm.com) | `apt install git` |
+| 7 | **Docker** (opcional) | Opción contenedor (cualquier PC) | `docker --version` | [docker.com](https://docker.com) | [docker.com](https://docker.com) |
+
+> **¿npm o bun?** Usa **npm** (viene con Node.js). **Bun no es necesario** — el paquete está hecho para npm y funciona igual en Windows, macOS y Linux.
+
+### Autodiagnóstico
+
+¿Dudas si te falta algo? El harness lo verifica solo:
 
 ```powershell
-# 1. Entra a tu carpeta de trabajo
-cd C:\Users\LapOne Mx\Documents\GitHub\arnes   # o cualquier proyecto
-
-# 2. Abre ARNES ARGOS (el entorno)
-argos
-#    → detecta si el proyecto es nuevo
-#    → si es nuevo: inicializa → conecta proveedores (/connect) → configura modelos (/configuremodel)
-#    → si ya está: menú con chat, connect, configure, status, memory
-
-# Comandos directos:
-argos connect       # conectar proveedores (nuestro /connect)
-argos configure     # configurar modelo por agente (nuestro /configuremodel)
-argos chat          # chat con Atlas (orquestador)
-argos status        # estado del entorno
+argos doctor     # o menú [8] Diagnóstico de prerequisitos
 ```
 
-## 🏢 La Empresa ARNES ARGOS (16 agentes)
+Revisa los 9 puntos (PowerShell, Python+sqlite3, Node+npm, OpenCode, Git, conexiones globales, modelos por agente, agentes instalados, Docker opcional) y te dice exactamente qué instalar si algo falta.
 
-| Departamento | Agente | Clase | Modelo |
-|---|---|---|---|
-| Dirección | **Atlas** | Player/Orchestrator | qwen3.8-max |
-| Sistemas/Infra | **Tidus** | Warden | deepseek-v4-flash |
-| Compras | **Ragnarok** | Warden | gpt-5.6-luna |
-| Programación | **Vivi** | Mage (Frontend) | gpt-5.6-luna |
-| Programación | **Ansem** | Paladin (Backend) | deepseek-v4-flash |
-| QA | **Kuja** | Rogue | deepseek-v4-flash |
-| DevOps | **Eiko** | Cleric | deepseek-v4-flash |
-| Arquitectura | **Amarant** | Monk | gpt-5.6-luna |
-| Investigación | **Eremez** | Ranger | deepseek-v4-flash |
-| Mejora Continua | **Bard** | Bard | gpt-5.6-luna |
-| Seguridad | **Auron** | Warden (L0 Gate) | deepseek-v4-flash |
-| Analista | **Bran** | Seer | gpt-5.6-luna |
-| Finanzas | **Quina** | Banker | deepseek-v4-flash |
-| Tracker | **Varys** | Spider | gpt-5.6-luna |
-| Verificador | **Tywin** | Verifier | deepseek-v4-flash |
-| Consejero | **Sam** | Archivist | gpt-5.6-luna |
+### Estado actual
 
-## 🧠 ARNES BRAIN (memoria cerebral)
+La base funcional actual incluye el CLI `argos`, configuración global de proveedores y modelos,
+sincronización de agentes con OpenCode, memoria SQLite/FTS5, knowledge graph y metodologías SDD,
+FDD y ADR propias. El roadmap y las tareas todavía pendientes están en
+[`docs/WHAT-IS-LEFT.md`](docs/WHAT-IS-LEFT.md); los cambios publicados se registran en
+[`CHANGELOG.md`](CHANGELOG.md).
 
-- `arnes.db` — SQLite + FTS5 (el hipocampo: hechos y recuerdos)
-- Knowledge Graph — tabla edges (el neocortex: relaciones)
-- Export JSONL para git/backup
-- Anti-alucinación por diseño: los agentes buscan HECHOS antes de actuar
+---
+
+## 🚀 Instalación
+
+### Opción A — Instalador directo (recomendado)
 
 ```powershell
-.\cli\arnes-memory.ps1 stats          # estado del cerebro
+# Windows (PowerShell)
+iwr -useb https://raw.githubusercontent.com/<TU-USUARIO>/arnes/main/install.ps1 | iex
+```
+
+```bash
+# macOS / Linux
+curl -fsSL https://raw.githubusercontent.com/<TU-USUARIO>/arnes/main/install.sh | bash
+```
+
+> Reemplaza `<TU-USUARIO>` por tu usuario de GitHub. El instalador clona el repo en `~/arnes`,
+> instala OpenCode si falta, sincroniza los 16 agentes y deja el comando `argos` listo.
+
+### Opción B — Git clone + npm
+
+```bash
+git clone https://github.com/<TU-USUARIO>/arnes.git
+cd arnes
+npm install -g .        # instala el comando `argos` global y corre el postinstall (sync de agentes)
+```
+
+### Opción C — Docker (funciona en cualquier PC)
+
+```bash
+# 1. Clona el repo
+git clone https://github.com/<TU-USUARIO>/arnes.git && cd arnes
+
+# 2. Construye la imagen y entra al entorno ARGOS (monta TU carpeta de trabajo)
+docker compose run --rm arnes
+
+# Comandos directos:
+docker compose run --rm arnes connect      # conectar proveedores (una vez)
+docker compose run --rm arnes configure    # elegir modelo por agente (una vez)
+docker compose run --rm arnes status       # estado del entorno
+```
+
+Los datos se montan desde tu máquina (volúmenes), así que la configuración y los agentes persisten
+entre ejecuciones: `~/.config/arnes` (conexiones + modelos), `~/.config/opencode` (agentes + auth) y tu carpeta de trabajo.
+
+---
+
+## ⚙️ Configuración — UNA VEZ por máquina
+
+ARNES ARGOS guarda la configuración **global de la máquina** (no por proyecto):
+
+| Documento | Ruta | Contenido |
+|---|---|---|
+| Conexiones | `~/.config/arnes/connections.json` | Proveedores (OpenCode Go, OpenAI, NVIDIA, B.AI...) con sus keys |
+| Modelos por agente | `~/.config/arnes/agent-models.json` | Qué modelo usa cada uno de los 16 agentes |
+
+```powershell
+argos connect        # 1. Conecta proveedores (API key verificada o OAuth del plan) — UNA vez
+argos configure      # 2. Elige el modelo de cada agente — UNA vez
+                     #    Muestra SOLO los modelos de proveedores CONECTADOS (verificados):
+                     #    NVIDIA, OpenAI, opencode-go, B.AI (+ lo que conectes)
+                     #    Escribe directamente en el buscador de arriba para filtrar (como opencode)
+argos recommend      # 3. Alternativa: recomendación inteligente (ahorro/equilibrio/calidad)
+```
+
+> El catálogo es **vivo y estricto**: solo se muestran los modelos de las conexiones **verificadas**
+> (API probada contra el endpoint `/models` al conectar; OAuth con sesión confirmada en opencode).
+> `argos status` te muestra cada conexión con su estado real: `[OK] verificado` / `[!!] key inválida`.
+> Escribe en el buscador superior para filtrar en vivo (ej: `nemotron`, `luna`, `qwen3.8`).
+
+Con base en ese documento, ARNES despliega el modelo a cada agente instalado
+(`~/.config/opencode/agents/*.md`). Puedes **cambiarlo cuando quieras** desde el menú
+o dentro del chat con `/connectagent`.
+
+---
+
+## 🏁 Quickstart
+
+```powershell
+# En cualquier carpeta de trabajo:
+argos doctor     # (opcional) verifica que tengas todo lo necesario
+argos
+#    → detecta si el proyecto es nuevo
+#    → inicializa .arnes/ (entorno del proyecto)
+#    → abre el menú: [1] Chat con Atlas · [2] Conectar proveedores · [3] Configurar modelos
+#                        [4] Recomendación · [5] Modo interacción · [6] Estado · [7] Memoria · [8] Diagnóstico
+```
+
+Dentro del chat de Atlas:
+
+```
+/party          ver el party (16 agentes)
+/connectagent   reconfigurar modelos por agente sin salir
+/memory         estado de la memoria
+/models         catálogo vivo de modelos
+/status         estado del harness
+/quit           salir
+```
+
+Si el comando muestra el banner y tarda en avanzar, consulta
+[`docs/ARGOS-STARTUP.md`](docs/ARGOS-STARTUP.md) antes de cerrar la terminal.
+
+### La cadena de modelos (cómo funciona)
+
+1. `argos configure` guarda el modelo de cada agente en el documento de la máquina.
+2. ARNES despliega ese modelo al frontmatter de cada agente instalado en OpenCode.
+3. Cuando Atlas delega (ej: Vivi para frontend, Ansem para backend, Auron para seguridad),
+   **cada agente usa SU modelo** — el uso de tokens aparece por modelo en tu proveedor.
+4. Cambias cuando quieras: menú `[3]` o `/connectagent` en el chat.
+
+---
+
+## 🏢 El party (16 agentes)
+
+| Departamento | Agente | Clase | Modelo sugerido |
+|---|---|---|---|
+| Dirección | **Atlas** | Player/Orchestrator | Qwen3.8 Max |
+| Programación | **Vivi** | Mage (Frontend) | GPT-5.6 Luna |
+| Programación | **Ansem** | Paladin (Backend) | DeepSeek V4 Flash |
+| QA | **Kuja** | Rogue | DeepSeek V4 Flash |
+| DevOps | **Eiko** | Cleric | DeepSeek V4 Flash |
+| Arquitectura | **Amarant** | Monk | GPT-5.6 Luna |
+| Investigación | **Eremez** | Ranger | DeepSeek V4 Flash |
+| Seguridad | **Auron** | Warden (L0 Gate) | DeepSeek V4 Pro |
+| Analista | **Bran** | Seer | GPT-5.6 Luna |
+| Finanzas | **Quina** | Banker | DeepSeek V4 Flash |
+| Tracker | **Varys** | Spider | GPT-5.6 Luna |
+| Verificador | **Tywin** | Verifier | DeepSeek V4 Flash |
+| Consejero | **Sam** | Archivist | GPT-5.6 Luna |
+| Mejora | **Bard** | Bard | GPT-5.6 Luna |
+| Infra | **Tidus** | Warden | DeepSeek V4 Flash |
+| Compras | **Ragnarok** | Warden | GPT-5.6 Luna |
+
+> Los modelos sugeridos son el default (prioridad "equilibrio"). Ajusta con `argos configure` o `argos recommend`.
+
+---
+
+## 🧠 Memoria propia (arnes.db)
+
+```powershell
+.\cli\arnes-memory.ps1 stats                                        # estado del cerebro
+.\cli\arnes-memory.ps1 save -Agent vivi -Topic vivi/ui-patterns -Type pattern -Content "..."
 .\cli\arnes-memory.ps1 search -Query "dark mode" -Agent vivi
-.\cli\arnes-memory.ps1 save -Agent vivi -Topic "vivi/ui-patterns" -Type pattern -Content "..."
-.\cli\arnes-graph.ps1 path -Start "Login.tsx" -End "tailwind"
+.\cli\arnes-graph.ps1 path -Start "Login.tsx" -End "tailwind"       # knowledge graph
 ```
 
 ## 📋 Metodologías propias
@@ -68,49 +205,37 @@ argos status        # estado del entorno
 |---|---|---|
 | **SDD** | arnes-sdd-propose/spec/design/tasks/apply/verify/archive | Cambios con spec profunda |
 | **FDD** | arnes-fdd-plan/implement/review/archive | Features incrementales |
-| **TDD** | kuja-backstab + vitest/playwright | Tests primero, proporcional (4+4=8) |
+| **TDD** | kuja-backstab + vitest/playwright | Tests primero, proporcional |
 | **ADR** | arnes-adr | Decisiones de arquitectura registradas |
 | **Knowledge Graph** | arnes-graph | Relaciones entre componentes/agentes |
 
-## 🎯 Skills propias v2 (16 skills, cero gentle-ai)
+## 🔌 Proveedores soportados
 
-Cada agente tiene su skill propia con procedimiento del arnes + skills web como arsenal:
-`core/skills/v2/` — vivi-fireball, ansem-smite, kuja-backstab, eiko-mend, amarant-foresight,
-eremez-mark, auron-bulwark, bran-vision, quina-ledger, varys-whisper, tywin-judgment,
-sam-counsel, atlas-orchestrate, tidus-tide-check, ragnarok-scout.
-
-## 🔌 Proveedores de modelos
-
-- **OpenCode Go** ($10/mes) — DeepSeek V4 Flash (workhorse), Qwen3.8 Max (Atlas)
-- **OpenAI** (cuenta GPT vía OAuth) — GPT-5.6 Luna para razonamiento
-- **NVIDIA NIM** (gratis) — DeepSeek V4 Flash/Pro sin costo
+- **OpenCode Go** — DeepSeek V4 Flash (workhorse), Qwen3.8 Max (Atlas)
+- **OpenAI** (cuenta ChatGPT vía OAuth) — GPT-5.6 Luna/Terra/Sol
+- **NVIDIA NIM** (gratis) — DeepSeek V4 Flash/Pro
 - **B.AI** — Claude Opus/Fable, GPT-5.6, Qwen3.8
+- **Z.AI / SiliconFlow / MiniMax / TokenRouter** — catálogo ampliable
 
-**Mini-guía completa**: `docs/PROVIDERS-GUIDE.md` — cómo se conecta cada proveedor
-(OAuth de OpenAI, API de NVIDIA, catálogo Go), las URLs y los comandos.
-
-Configuración en `.arnes/config.json` — reconfigurable con `atlas-shell.ps1 -Setup` (wizard con flechas).
+Mini-guía completa: `docs/PROVIDERS-GUIDE.md`
 
 ## 📚 Documentación
 
-- `docs/PLAN-ARNES.md` — roadmap maestro + continuidad entre sesiones
+- `CHANGELOG.md` — cambios publicados y pendientes de release.
+- `CONTRIBUTING.md` — instalación para colaboradores, validación y reportes.
+- `docs/ARGOS-STARTUP.md` — flujo técnico de arranque y diagnóstico de pausas.
+- `docs/PLAN-ARNES.md` — roadmap maestro y continuidad entre sesiones
 - `docs/WHAT-IS-LEFT.md` — estado del proyecto
-- `.arnes/next-steps.json` — fases y criterios de aceptación
-- `.arnes/adr/` — decisiones de arquitectura
-- `.arnes/sdd/` — cambios SDD
-- `.arnes/fdd/` — feature sets
+- `docs/USAGE-FLOW.md` — flujo de uso completo
+- `docs/PROVIDERS-GUIDE.md` — cómo conectar cada proveedor
+- `core/memory-system.md` — sistema de memoria (arnes.db)
 
-## ⚠️ Firma de artefactos (opcional)
+## 🤝 Contribuir
 
-```powershell
-$env:ARNES_ARTIFACT_HMAC_KEY = "usa-un-secreto-largo-y-aleatorio"
-```
+Consulta [`CONTRIBUTING.md`](CONTRIBUTING.md) para el flujo completo. En resumen: crea una rama,
+valida con `argos doctor`, prueba los scripts PowerShell afectados y separa tus cambios de
+cualquier trabajo local previo que no pertenezca a tu contribución.
 
-No guardes esta clave en Git.
+## 📄 Licencia
 
-## 🔄 Cómo retomar entre sesiones
-
-1. Abre `docs/PLAN-ARNES.md`
-2. Verifica estado: `git status`, `.arnes/config.json`, `opencode auth list`
-3. Continúa con la fase pendiente del plan
-4. Al terminar sesión: guarda digest en memoria (`arnes-memory.ps1 save -Agent atlas -Topic atlas/digest-<fecha>`)
+MIT — haz lo que quieras, los 100 ojos te observan. 👁️

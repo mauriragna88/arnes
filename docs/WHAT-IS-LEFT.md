@@ -1,15 +1,25 @@
 # Estado del Proyecto — Que nos Falta
 
 > creado: 2026-07-25
-> actualizado: 2026-08-05 (PLAN ARNES v2 — ecosistema 100% propio, ver `PLAN-ARNES.md`)
+> actualizado: 2026-08-09 (estado del CLI Argos y documentación para GitHub)
 
 ## ⚠️ IMPORTANTE — LEE PRIMERO `docs/PLAN-ARNES.md`
 
 El roadmap maestro está en **`docs/PLAN-ARNES.md`**. Ese documento es la fuente de verdad para la visión ARNES v2:
-ecosistema 100% propio (memoria SQLite, knowledge graph, SDD/FDD/ADR propios) SIN depender de gentle-ai ni engram.
+ecosistema 100% propio (memoria SQLite, knowledge graph, SDD/FDD/ADR propios) SIN herramientas externas.
 Este archivo resume el estado heredado; el plan futuro vive en PLAN-ARNES.md.
 
 ## Completado (lo que ya funciona)
+
+- [x] CLI npm `argos` con entrada multiplataforma basada en PowerShell
+- [x] Diagnóstico de prerequisitos con `argos doctor`
+- [x] Configuración global de proveedores y modelos por agente
+- [x] Sincronización de agentes, modelos y skill trees con OpenCode
+- [x] Mutex de sincronización para evitar colisiones entre procesos concurrentes
+- [x] Escrituras idempotentes de modelos para reducir el tiempo de arranque repetido
+- [x] Memoria propia SQLite/FTS5 y knowledge graph
+- [x] Metodologías propias SDD, FDD y ADR documentadas
+- [x] Documentación pública base, changelog, contribución y troubleshooting de arranque
 
 - [x] Estructura SDD completa (proposal, spec, design, tasks)
 - [x] Config base `.arnes/config.json` con plataforma/suscripcion/party
@@ -43,18 +53,18 @@ Este archivo resume el estado heredado; el plan futuro vive en PLAN-ARNES.md.
 
 ## Pendiente (lo que nos falta)
 
-### 🔴 NUEVO PLAN ARNES v2 — ver `docs/PLAN-ARNES.md` para el detalle completo
+### 🔴 Roadmap — ver `docs/PLAN-ARNES.md` para el detalle completo
 
 **FASES (en orden de ejecución):**
 
 | Fase | Qué | Estado |
 |---|---|---|
-| **FASE 1 — ARNES BRAIN** | arnes.db (SQLite+FTS5) + arnes-memory CLI + skills memoria | ⬅️ PRÓXIMA |
-| **FASE 2 — ARNES GRAPH** | Capa de relaciones (edges) + arnes-graph CLI | Pendiente |
-| **FASE 3 — ARNES SDD** | Skills arnes-sdd-* propias (sin gentle-ai) | Pendiente |
-| **FASE 4 — ARNES FDD** | Skills arnes-fdd-* + features | Pendiente |
-| **FASE 5 — ARNES ADR** | Registro de decisiones + skill arnes-adr | Pendiente |
-| **FASE 6 — ATLAS SHELL + GIT** | Banner + wizard modelos + chat + git + docs | Pendiente |
+| **FASE 1 — ARNES BRAIN** | arnes.db (SQLite+FTS5) + arnes-memory CLI + skills memoria | Hecho |
+| **FASE 2 — ARNES GRAPH** | Capa de relaciones (edges) + arnes-graph CLI | Hecho |
+| **FASE 3 — ARNES SDD** | Skills arnes-sdd-* propias | Hecho |
+| **FASE 4 — ARNES FDD** | Skills arnes-fdd-* + features | En evolución |
+| **FASE 5 — ARNES ADR** | Registro de decisiones + skill arnes-adr | Hecho |
+| **FASE 6 — ARGOS CLI + GITHUB** | CLI, modelos, diagnóstico, documentación y publicación | En evolución |
 
 ### Pendientes heredados (de la versión anterior)
 
@@ -62,15 +72,15 @@ Este archivo resume el estado heredado; el plan futuro vive en PLAN-ARNES.md.
    - Verificar que el agente `atlas` carga con system prompt RPG
    - Verificar que la delegacion con `task(subagent_type="vivi")` funciona
 
-2. **Git roto** — `.git/` existe pero vacío (0 archivos, sin HEAD). `git init` de nuevo en FASE 6.
+2. **Validar Atlas en OpenCode real** con una sesión completa y documentar resultados.
 
-3. **atlas-player en opencode.json** apunta a `nvidia/deepseek-ai/deepseek-v4-pro` — actualizar a qwen3.8-max (FASE 6 o antes).
+3. **Cerrar la publicación de GitHub**: separar cambios acumulados, revisar secretos, elegir
+   commits atómicos y crear el primer release.
 
-4. **Config de modelos 2026-08-05 ya aplicada** — ver PLAN-ARNES.md sección "Configuración de modelos".
+4. **Revisar documentación histórica** que todavía usa nombres de prototipos como “Evenatan”.
 
-5. **Skills sdd-* de gentle-ai instaladas** — reemplazar por arnes-sdd-* propias (FASE 3).
-
-6. **Basura en repo**: `imagen10.jpg` y `Sin título.jpg` — limpiar en FASE 6.
+5. **Limpiar artefactos locales** antes de publicar, incluyendo imágenes o configuraciones que
+   no formen parte del producto.
 
 ### Media Prioridad — Quality of Life
 
@@ -95,10 +105,23 @@ Este archivo resume el estado heredado; el plan futuro vive en PLAN-ARNES.md.
 ## Decisiones Tomadas (2026-08-05)
 
 1. ✅ **Modelos reasignados** — DeepSeek V4 Flash como workhorse (75%), GPT-5.6 Luna para razonamiento, Qwen3.8 Max para Atlas. Proveedores: Go + OpenAI (OAuth) + NVIDIA (GRATIS).
-2. ✅ **ARNES v2 100% independiente** — memoria SQLite propia, SDD/FDD/ADR propios. CERO dependencia de gentle-ai/engram.
+2. ✅ **ARNES v2 100% independiente** — memoria SQLite propia, SDD/FDD/ADR propios. CERO herramientas externas.
 3. ✅ **Memoria = SQLite (arnes.db) + FTS5** — búsqueda instantánea tipo cerebro, con export JSONL para git.
 4. ✅ **FDD aprobado** — se construye como FASE 4.
 5. ✅ **Knowledge Graph aprobado** — capa de relaciones (FASE 2).
 6. ✅ **Harness > modelo** — el sistema verifica; el modelo es intercambiable.
 7. ✅ **Atlas Shell** — banner + wizard de modelos con flechas + chat directo (FASE 6).
 8. ✅ **Continuidad entre sesiones** — este documento + PLAN-ARNES.md son la fuente de retoma.
+
+## Documentos de referencia
+
+- [`README.md`](../README.md) — instalación y uso público.
+- [`CHANGELOG.md`](../CHANGELOG.md) — cambios por release.
+- [`CONTRIBUTING.md`](../CONTRIBUTING.md) — contribución y validación.
+- [`ARGOS-STARTUP.md`](./ARGOS-STARTUP.md) — diagnóstico del arranque.
+
+## Estado del árbol de trabajo
+
+El repositorio puede contener cambios acumulados de sesiones anteriores. Antes de publicar en
+GitHub hay que revisar `git status`, separar los cambios por responsabilidad y no incluir claves,
+memoria local ni configuraciones privadas.

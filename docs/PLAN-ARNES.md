@@ -1,4 +1,4 @@
-# PLAN ARNES ARGOS — Roadmap Maestro del Harness
+﻿# PLAN ARNES ARGOS — Roadmap Maestro del Harness
 
 > **Documento de continuidad entre sesiones.**
 > **ARNES ARGOS**: el gigante de los 100 ojos — todo lo ve, todo lo vigila.
@@ -8,25 +8,103 @@
 
 ---
 
+## ✨ PALABRA MÁGICA DE CONTINUIDAD: "CIEN OJOS"
+
+> Para retomar la sesión: escribe **"CIEN OJOS"** y ARGOS sabrá que vienes a continuar.
+> Es el gatillo: abre este plan, verifica git/memoria y sigue con los pendientes de abajo.
+
 ## 🎯 MAÑANA RETOMAMOS AQUÍ (sesión del 2026-08-06)
 
 **Siguiente paso pendiente**: continuar con la visión de configuración del usuario:
 1. ✅ Conexiones GLOBALES (una vez por computadora) — `~/.config/arnes/connections.json`
 2. ✅ argos-recommend (mini-guía inteligente con prioridad ahorro/equilibrio/calidad)
-3. ⏳ **PENDIENTE**: Ragnarok para primera búsqueda (cuando no hay modelos conectados)
-   - Usar el modelo más inteligente disponible para que Ragnarok investigue y recomiende
-   - Preguntar al usuario si le importa ahorro de tokens
-4. ⏳ **PENDIENTE**: probar el flujo completo de proyecto nuevo en una carpeta real de trabajo
-5. ⏳ **PENDIENTE**: decidir si `argos configure` debe usar la recomendación como default
+3. ✅ **RAGNAROK PRIMERA BÚSQUEDA** (2026-08-06): cuando no hay proveedores conectados, `argos recommend` y el flujo de proyecto nuevo muestran la guía de Ragnarok (qué conectar: nvidia gratis, opencode-go workhorse, openai razonamiento, bai elite)
+4. ✅ **FLUJO DE PROYECTO NUEVO PROBADO** (2026-08-06, carpeta real `argos-test-proyecto`) — ver abajo
+5. ✅ **`argos configure` USA LA RECOMENDACIÓN COMO DEFAULT** (2026-08-06): si el modelo previo del agente no está disponible entre los proveedores conectados, el picker abre con la recomendación (equilibrio) ya preseleccionada
 
 **Para retomar**: `argos` → [4] Recomendación inteligente → luego [3] Configurar modelos
+
+---
+
+### ✅ Prueba de flujo de proyecto nuevo (2026-08-06) — 2 bugs encontrados y corregidos
+
+**Prueba**: carpeta real `C:\Users\LapOne Mx\Documents\GitHub\argos-test-proyecto`, secuencia `argos init` → `connect` → `configure` → `recommend` → `status`.
+
+**Resultados**:
+- ✅ `argos init` crea `.arnes/` + `agent-models.json` (16 agentes con defaults)
+- ✅ `argos-connect status` lista conexiones GLOBALES (bai, nvidia, opencode-go conectados)
+- ✅ `argos recommend` lista 14 modelos de proveedores conectados (leía global correctamente)
+- ✅ `argos configure` configura los 16 agentes desde proveedores conectados (después del fix)
+- ✅ Detección `has_connections` en menú usa proveedores globales conectados (después del fix)
+
+**Bug 1 (CRÍTICO — corregido en `cli/argos.ps1`)**: `argos.ps1` leía conexiones de la ruta LOCAL `.arnes/connections.json`, pero `argos-connect.ps1`/wizard escriben en la GLOBAL `~/.config/arnes/connections.json`. Síntoma: conectabas proveedores → "conectado" → al configurar agentes decía "No hay proveedores conectados". Fix: `$GlobalConnPath` usada en `Get-ProjectState` (≥1 proveedor `connected`) y `Show-ConfigureModels`.
+
+**Bug 2 (corregido en `cli/argos-connect.ps1` + `cli/argos-connect-wizard.ps1`)**: el wizard OAuth abría la URL base de la API (`https://api.openai.com/v1`) en vez del login real de la cuenta. Fix: campo `login_url` por proveedor (`openai` → `https://chatgpt.com/auth/login`, `claude` → `https://claude.ai/login`), con migración idempotente en `init` (agrega `login_url` a proveedores conocidos en el JSON global existente) y fallback a `base_url` si no existe.
+
+**Gotchas nuevos**:
+- `Read-Host` crashea en modo NO interactivo (`PSInvalidOperationException`) → CORREGIDO 2026-08-06: helper `Read-Input` en argos.ps1, argos-recommend, argos-connect-wizard y argos-interaction (devuelve vacío en vez de crashear). El flujo completo de proyecto nuevo ya corre headless sin colgarse.
+- El picker (`arnes-picker.ps1`) tiene fallback no interactivo: devuelve la opción default automáticamente (útil para tests headless).
+- `argos-chat.ps1` usa `$Root` del repo (no del proyecto) para `$ArnesDir` — inofensivo hoy, inconsistente con el resto (usa `Get-Location`).
+- La carpeta de test `argos-test-proyecto` puede borrarse cuando quieras.
+
+### ✅ Mejoras de configuración (2026-08-06, 2ª ronda)
+
+- **Recomendación rol-consciente**: `argos-recommend.ps1` ahora tiene `$ROLE_PREF` por agente (alineado a la estrategia 75% DeepSeek + Luna razonamiento + Qwen Atlas). Antes "equilibrio" asignaba `claude-fable-5` a TODOS los agentes (incluido Atlas) — un bug de calidad. Ahora: Atlas→qwen3.8-max, razonamiento→gpt-5.6-luna, volumen→deepseek-v4-flash NVIDIA, Auron→deepseek-v4-pro gratis.
+- **`-Priority` param**: `argos recommend -Priority ahorro|equilibrio|calidad` funciona sin interacción (para automatización). El motor se reutiliza por dot-source desde argos.ps1 (guarda de main con `$MyInvocation.InvocationName`).
+- **Guía Ragnarok**: cuando no hay proveedores conectados, se muestra qué conectar primero (nvidia/opencode-go/openai/bai) en lugar de un callejón sin salida.
+
+### ✅ ESLABÓN CRÍTICO: modelos por agente APLICADOS (2026-08-06)
+
+**Problema encontrado**: `argos configure` escribía `.arnes/agent-models.json`, pero NADA lo aplicaba a los agentes reales. Los 16 agentes del party son SUBAGENTES de OpenCode definidos en `~/.config/opencode/agents/<name>.md` SIN frontmatter de modelo. Según las docs de OpenCode, un subagente sin `model` usa el modelo del agente primario que lo invoca → TODO el trabajo caía en qwen3.8-max (modelo de Atlas) → sin uso por modelo en los dashboards.
+
+**Fix**: nuevo `cli/argos-models-apply.ps1` — inyecta frontmatter `model: <x>` + `mode: subagent` en cada `agents/<name>.md` instalado. Se ejecuta automáticamente después de `argos configure` y `argos recommend -Apply`, y tras `atlas sync` (SyncAgents re-aplica para no perder el frontmatter). En el chat: comando `/connectagent` reconfigura modelos sin salir.
+
+**Cadena completa**: `argos configure` → `.arnes/agent-models.json` → `argos-models-apply` → `~/.config/opencode/agents/*.md` (frontmatter model) → Atlas delega vivi/ansem/auron → CADA UNO usa SU modelo → uso de tokens por modelo real. Reiniciar la sesión de argos/opencode para que tome los modelos.
+
+**Gotcha**: los agentes `.md` instalados tenían mojibake cp1252→UTF-8 pre-existente (em-dash "â€""). El script repara por línea (round-trip seguro) y preserva BOM UTF-8.
+
+### ✅ MOTOR NATIVO + CICLO COMPLETO (2026-08-06) — sin opencode
+
+- **`cli/arnes-engine.ps1`**: motor nativo que habla DIRECTO con las APIs (bai, nvidia, opencode-go, openai) — OpenAI-compatible, con reintentos (429/500/503), uso de tokens por respuesta, y **body UTF-8 explícito** (bug crítico: PS 5.1 mandaba ISO-8859-1 → HTTP 500 con unicode en todo opencode-go).
+- **`cli/arnes-cycle.ps1`**: ciclo orquestador completo: ATLAS orquesta (PARTY + plan) → AMARANT plan técnico → BARD mejora continua (FALTA/NO SE MENCIONÓ/AGREGAR) → PARTY ejecuta con SUS modelos → TYWIN verifica (PASS/FAIL + remediation) → ATLAS autoriza (FINALIZAR/RETOQUE). Reporte en `.arnes/quests/` + mejoras/verdict en memoria.
+- **`cli/argos-chat.ps1`**: chat NATIVO (sin opencode), multi-turno, persona RPG completa, uso de tokens por mensaje.
+- **`argos test-model`**: prueba "hola" por modelo con el motor nativo. **`argos quest "<quest>"`**: lanza el ciclo completo.
+- **Economía de tokens (por diseño)**: Atlas (tier, persona completa ~6K tkns) SOLO 2 llamadas/quest (orquesta + autoriza) — estratega caro pero preciso; Amarant planea con NVIDIA gratis; el party ejecuta con DeepSeek Flash/Pro; Tywin verifica gratis.
+- **Endpoints corregidos**: opencode-go → `https://opencode.ai/zen/go/v1` (el `api.opencode.ai/v1` daba 404); bai → `api.b.ai/v1` (catálogo 37 modelos, chat da 403 con la key actual — pendiente validar con el proveedor).
+
+**Pendiente siguiente**: modo CODING nativo (leer/editar/crear archivos en vivo, como Claude Code/Codex pero ARNES) + delegación del party con herramientas reales.
+
+### ✅ DECISIÓN: OpenCode como entorno de trabajo (2026-08-06)
+
+El usuario decidió usar **OpenCode como el entorno interactivo de trabajo** (su TUI es superior para trabajar en vivo) y **ARNES como la capa de configuración, memoria y agentes**:
+- ARNES = conexiones y modelos (una vez por máquina), memoria por proyecto (arnes.db), los 16 agentes RPG con sus modelos asignados, doctor/verify, perfiles de proyecto.
+- OpenCode = el entorno donde trabajas (chat, delegación de agentes, edición de archivos) usando NUESTROS 16 agentes y SUS modelos.
+- **Puente**: `argos opencode` (o menú [9]) → sincroniza agentes+modelos (`atlas --sync`) → abre opencode en la carpeta. Los agentes viven en `~/.config/opencode/agents/*.md` con frontmatter de modelo.
+- El chat nativo de ARNES queda disponible para consultas rápidas, pero NO compite con opencode para trabajo real.
+
+### ✅ Distribución y portabilidad (2026-08-06)
+
+- **Modelos GLOBALES de máquina**: `~/.config/arnes/agent-models.json` — se configuran UNA vez (`argos configure` / `argos recommend`) y se despliegan al frontmatter de los agentes instalados en cualquier proyecto. Migración automática desde proyectos con config local. `~/.config/arnes/agent-models.json` — se configuran UNA vez (`argos configure` / `argos recommend`) y se despliegan al frontmatter de los agentes instalados en cualquier proyecto. Migración automática desde proyectos con config local.
+- **Instalador npm**: `package.json` + `bin/argos.js` (multiplataforma) + `bin/postinstall.js` (sync de agentes + conexiones + despliegue de modelos). `npm install -g .` deja el comando `argos` global.
+- **Instalador directo**: `install.ps1` / `install.sh` actualizados (param `-RepoUrl`, wrappers `argos`+`atlas`, `atlas --sync` headless).
+- **Docker**: `Dockerfile` (pwsh + node + opencode CLI) + `docker-compose.yml` con volúmenes de `~/.config/arnes`, `~/.config/opencode` y la carpeta de trabajo → corre en cualquier PC.
+- **README**: manual de instalación en la página principal (3 opciones: instalador directo, npm, Docker) + quickstart + docs.
+- `atlas.ps1 --sync`: modo headless para instaladores (sync agentes + skills + memoria + despliegue de modelos).
+
+**Pendiente usuario**: subir repo a GitHub (definir URL, reemplazar `<TU-USUARIO>` en README/installers) y decidir si se remueve el plugin de memoria de terceros del `opencode.json` global (solo agentes SDD legacy).
+
+### ✅ Independencia total — LIMPIEZA COMPLETADA (2026-08-06)
+
+- ✅ **El party ARNES (16 agentes) es 100% independiente**: memoria propia en arnes.db (FASE 1 BRAIN), SDD/FDD/ADR propios, flujo argos propio.
+- ✅ **Limpieza total del repo completada 2026-08-06**: eliminados los scripts legacy de memoria de terceros; rewired loop-engine/circuit-breaker a `arnes-memory.ps1`; bloque legacy de carga de memoria reemplazado por `Load-ArnesMemory` en atlas/activate; todos los agentes, skills y docs actualizados a memoria propia (arnes.db). CERO menciones restantes.
+- ✅ Config global `~/.config/opencode/opencode.json` aún conserva el plugin de memoria de terceros para los agentes sdd-*/maestro legacy (fuera del flujo del party) — decisión pendiente del usuario si se remueve.
 
 ---
 
 ## 🎯 MISIÓN DEL ARNES
 
 Construir el **ARNES v2** — un ecosistema de desarrollo 100% propio e independiente:
-- **CERO dependencia** de gentle-ai, engram, openspec, o cualquier arnes externo
+- **CERO dependencia** de herramientas externas: memoria, metodos y skills propios
 - Memoria cerebral propia (SQLite + FTS5), Knowledge Graph, SDD, FDD, ADR propios
 - El harness hace el trabajo pesado → el modelo de IA es intercambiable (DeepSeek/Qwen/GPT)
 - Anti-alucinación por diseño: memoria + verificación, no confianza ciega en el LLM
@@ -46,7 +124,7 @@ Construir el **ARNES v2** — un ecosistema de desarrollo 100% propio e independ
 | Git | 2.52.0 | Repo + versionado |
 | winsqlite3.dll | Nativo Windows | Backup SQLite |
 
-**PROHIBIDO depender de**: gentle-ai · engram · Neo4j · bases externas · SDKs ajenos. Todo corre con Python + SQLite + PowerShell.
+**PROHIBIDO depender de**: herramientas externas de memoria/orquestacion · Neo4j · bases externas · SDKs ajenos. Todo corre con Python + SQLite + PowerShell.
 
 ---
 
@@ -103,19 +181,19 @@ ATLAS necesita saber → task() al agente → agente busca en SU memoria (arnes.
 | **ADR** (Architecture Decision Records) | Toda decisión de arquitectura queda registrada | FASE 5 |
 | **DDD** (Domain-Driven) | Glosario de dominio si el proyecto lo pide | Opcional |
 | **Knowledge Graph** | Relaciones entre todo (quién tocó qué) | FASE 2 |
-| **Skills PROPIAS v2** | Skills de los 13 agentes 100% propias, sin gentle-ai (las de internet solo como referencia) | FASE 3.5 |
+| **Skills PROPIAS v2** | Skills de los 13 agentes 100% propias (las de internet solo como referencia) | FASE 3.5 |
 
 ---
 
 ## 🔒 REGLA INALTERABLE (DECISIÓN DEL USUARIO 2026-08-05)
 
-**El arnes NO depende de gentle-ai EN NADA: ni skills, ni SDD, ni memoria, ni nada.**
+**El arnes NO depende de herramientas externas EN NADA: ni skills, ni SDD, ni memoria, ni nada.**
 - Las skills de internet (superpowers, ui-ux-pro-max, taste-skill) **SÍ SE MANTIENEN CARGADAS** como
   **complemento de poder** para que los agentes sean top — pero NUNCA son una dependencia obligatoria.
 - Los agentes cargan skills **100% propias del arnes** (v2) como identidad y proceso.
 - Las skills web son el ARSENAL extra: cuando una skill propia lo necesite, puede apoyarse en las web
   para ejecutar mejor (ej: vivi-fireball usa react + tailwind instalados, pero el PROCEDIMIENTO es nuestro).
-- Cero referencias "Gentle-AI Origin" en el skill-registry.
+- Cero referencias a origenes externos en el skill-registry.
 - FASE 3.5 es dedicada a crear estas skills propias + mapear las web como complemento.
 
 ---
@@ -154,7 +232,7 @@ ATLAS necesita saber → task() al agente → agente busca en SU memoria (arnes.
 - Estado actual: 6 nodos, 5 edges (uses: 3, imports: 1, protected_by: 1)
 - Anti-alucinación por relaciones: "si el grafo dice que existe, existe"
 
-### FASE 3 — ARNES SDD (sin gentle-ai) ✅ COMPLETADA 2026-08-05
+### FASE 3 — ARNES SDD (metodos propios) ✅ COMPLETADA 2026-08-05
 - [x] Skills propias file-based: `arnes-sdd-propose/spec/design/tasks/apply/verify/archive`
 - [x] Carpeta `.arnes/sdd/` con templates (proposal, spec, design, tasks)
 - [x] Change de ejemplo: `.arnes/sdd/C-20260805-01/` (Login Form con Zod)
@@ -168,14 +246,14 @@ ATLAS necesita saber → task() al agente → agente busca en SU memoria (arnes.
 - Flujo conectado a memoria: cada fase guarda en arnes.db (specs-created, quest-history)
 - La fase verify la ejecuta Tywin (PASS/FAIL con evidencia)
 
-### FASE 3.5 — ARNES SKILLS PROPIAS (DECISIÓN 2026-08-05: cero gentle-ai) ✅ COMPLETADA
-> **El usuario decidió: skills 100% propias, sin depender de gentle-ai EN NADA (ni skills, ni nada).**
+### FASE 3.5 — ARNES SKILLS PROPIAS (DECISIÓN 2026-08-05) ✅ COMPLETADA
+> **El usuario decidió: skills 100% propias, sin dependencias externas obligatorias.**
 > Las skills de internet instaladas (superpowers, ui-ux-pro-max, taste-skill, etc.) **SE MANTIENEN**
 > como **complemento de poder / arsenal** para que los agentes sean top — nunca como dependencia obligatoria.
 > El PROCEDIMIENTO es nuestro; las skills web potencian la ejecución.
 
-- [x] Crear skills propias renovadas en `core/skills/v2/` (16 skills) — sin "Gentle-AI Origin"
-- [x] Actualizar `.atl/skill-registry.md` — mapeo RPG → skills PROPIAS v2 (sin gentle-ai)
+- [x] Crear skills propias renovadas en `core/skills/v2/` (16 skills) — sin origenes externos
+- [x] Actualizar `.atl/skill-registry.md` — mapeo RPG → skills PROPIAS v2
 - [x] Cada skill propia define: trigger, inputs, pasos, output esperado, conexión a memoria (arnes.db)
 - [x] Skills del arnes (15 agentes): vivi-fireball, ansem-smite, kuja-backstab, eiko-mend, amarant-foresight, eremez-mark, auron-bulwark, bran-vision, quina-ledger, varys-whisper, tywin-judgment, sam-counsel, atlas-orchestrate, tidus-tide-check, ragnarok-scout
 - [x] La capa RPG (niveles/XP/damage) se mantiene pero apunta a las skills propias v2
@@ -337,9 +415,9 @@ ATLAS necesita saber → task() al agente → agente busca en SU memoria (arnes.
 1. **Git roto**: `.git/` existe pero vacío (0 archivos, sin HEAD). `git init` de nuevo en FASE 6.
 2. **BOM UTF-8 obligatorio** en `atlas-init.ps1` — si un editor guarda sin BOM, el banner se corrompe (PS 5.1 lee sin BOM como ANSI).
 3. **atlas-player en opencode.json** apunta a `nvidia/deepseek-ai/deepseek-v4-pro` — debe actualizarse a qwen3.8-max en FASE 6 (o antes).
-4. **skills sdd-* de gentle-ai instaladas** en `~/.config/opencode/skills/` — reemplazar por las nuestras en FASE 3.
-5. **skill-registry.md referencias "Gentle-AI Origin"** — actualizar a skills propias v2 en FASE 3.5.
-5. **Engram** MCP configurado en opencode.json — decidir si se remueve o se deja como opcional (el arnes ya no depende de él).
+4. **skills sdd-* legacy instaladas** en `~/.config/opencode/skills/` — reemplazadas por las nuestras en FASE 3.
+5. **skill-registry.md referencias a origenes externos** — actualizado a skills propias v2 en FASE 3.5.
+5. **Plugin de memoria de terceros** MCP en opencode.json — solo para agentes SDD legacy, fuera del flujo del party.
 6. **Basura en repo**: `imagen10.jpg` y `Sin título.jpg` — limpiar en FASE 6.
 7. **PowerShell 5.1** — el `$_` en comandos bash se come por interpolación; usar scripts temporales o escaping.
 8. **Consola cp1252** — no imprimir emojis Unicode desde python directo en consola; usar archivos temporales o ASCII.
@@ -362,7 +440,7 @@ ATLAS necesita saber → task() al agente → agente busca en SU memoria (arnes.
 | `cli/model-catalog.ps1` | Catálogo vivo de modelos (opencode models) |
 | `cli/agent-model-resolver.ps1` | Resuelve modelo por agente contra catálogo |
 | `docs/PROVIDERS-GUIDE.md` | **NUEVO** Mini-guía de conexiones: OAuth OpenAI, API NVIDIA, catálogo Go, URLs |
-| `core/memory-system.md` | Diseño de memoria (engram + fallback JSONL — a migrar a arnes.db) |
+| `core/memory-system.md` | Diseño de memoria propia (arnes.db SQLite+FTS5) |
 | `core/protocols/` | Schemas de blackboard, sam-digest, handoff |
 | `.arnes/config.json` | Config principal (modelos por agente) |
 | `.arnes/model-recommendations.json` | Party recomendada por plan |
