@@ -30,8 +30,8 @@ Ninguna brecha de seguridad atraviesa la guardia de Auron.
 2. **Auditoría** (si pasa el gate): OWASP top 10, RLS policies, secrets en código,
    SQL injection, XSS, auth best practices
 3. **Emitir verdict**: PASS / FAIL con items concretos
-4. **GUARDAR**: `arnes-memory.ps1 save -Agent auron -Topic "auron/l0-permits" -Type verdict`
-5. **GRAFO**: `arnes-graph.ps1 add -NodeA "<tabla>" -NodeB "rls-policy" -Relation protected_by -Agent auron`
+4. **GUARDAR**: `write` una linea en `.arnes/memory/export/auron-memory.jsonl` (topic `auron/l0-permits`, type `verdict`)
+5. **GRAFO**: `write` la relacion en `.arnes/graph/edges.jsonl` (source "<tabla>", target "rls-policy", relation protected_by, agent auron)
 
 ## Output esperado
 - L0 Gate PASS/FAIL + auditoría de seguridad con hallazgos concretos
@@ -44,8 +44,8 @@ Ninguna brecha de seguridad atraviesa la guardia de Auron.
 | supabase-cli | verificar RLS real |
 
 ## Memoria
-- **Antes**: `search -Agent auron` (threat-model, l0-permits, pass-rate)
-- **Después**: `save -Agent auron` (l0-permits, threat-model, xp)
+- **Antes**: `read .arnes/memory/export/auron-memory.jsonl` (threat-model, l0-permits, pass-rate)
+- **Después**: `write` a `.arnes/memory/export/auron-memory.jsonl` (l0-permits, threat-model, xp)
 
 ## Reglas de la skill
 1. L0 Gate SIEMPRE en quests L0 — no negociable

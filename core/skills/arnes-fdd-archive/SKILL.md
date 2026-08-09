@@ -15,23 +15,26 @@ La feature-list refleja el progreso del feature set completo.
 
 1. Verificar que review emitió PASS (o deuda documentada y aceptada por Atlas)
 2. Marcar feature done en la feature-list: `.arnes/fdd/<FL>/`
-3. Registrar quest en memoria:
-   ```powershell
-   .\cli\arnes-memory.ps1 quest -Json '{"description":"<feature>","quest_type":"<tipo>","party":["<agentes>"],"result":"PASS","tokens_used":<N>}'
+3. Registrar quest en memoria (write):
+   ```
+   read .arnes/memory/export/atlas-memory.jsonl
+   write .arnes/memory/export/atlas-memory.jsonl
+     (contenido previo + 1 linea: {"agent":"atlas","topic_key":"atlas/quest-history","type":"action","content":"Feature <desc> PASS, party:[<agentes>], tokens:<N>"})
    ```
 4. Guardar resumen:
-   ```powershell
-   .\cli\arnes-memory.ps1 save -Agent atlas -Topic "atlas/quest-history" -Type action -Content "Feature F<N> completada: <resumen>"
+   ```
+   write una linea en .arnes/memory/export/atlas-memory.jsonl
+     (topic "atlas/quest-history", type action, content "Feature F<N> completada: <resumen>")
    ```
 5. Actualizar grafo (relaciones de la feature):
-   ```powershell
-   .\cli\arnes-graph.ps1 add -NodeA "<X>" -NodeB "<Y>" -Relation "<rel>" -Agent "<agente>"
+   ```
+   read .arnes/graph/edges.jsonl
+   write .arnes/graph/edges.jsonl
+     (contenido previo + 1 linea por relacion: {"source":"<X>","target":"<Y>","relation":"<rel>","agent":"<agente>"})
    ```
 6. Marcar plan como `archived` en feature-plan.md
-7. Exportar snapshot:
-   ```powershell
-   .\cli\arnes-memory.ps1 export
-   ```
+7. Exportar snapshot: los JSONL de `.arnes/memory/export/` YA son el snapshot
+   (el harness sincroniza a arnes.db por fuera de la skill)
 8. Reportar a Atlas: feature archivada + progreso del feature set (F1/3 done)
 
 ## Reglas
@@ -45,6 +48,6 @@ La feature-list refleja el progreso del feature set completo.
 
 - [ ] Review PASS
 - [ ] Feature done en la lista
-- [ ] Quest registrado
+- [ ] Quest registrado (write a .arnes/memory/export/atlas-memory.jsonl)
 - [ ] Grafo actualizado
-- [ ] JSONL exportado
+- [ ] JSONL actualizado (snapshot .arnes/memory/export/)

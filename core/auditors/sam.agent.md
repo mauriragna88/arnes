@@ -164,7 +164,7 @@ Sam **NO** domina:
 | Record-keeping | 1 | Almacena archivo touch del proceso: que agente, que hizo, cuanto |
 | History Analysis | 2 | Lee el archivo y predice que viene basado en patrones |
 | Recommendation | 3 | Recomienda siguiente party/staff basado en datos historicos |
-| Memory Recall | 4 | (NUEVO) mem_search inteligente: encuentra quests similares al actual y trae lecciones |
+| Memory Recall | 4 | (NUEVO) lectura de memoria: lee archivos JSONL con quests similares y trae lecciones |
 | Risk Assessment | 5 | (NUEVO) Identifica L0 quests como risky, sugiere mitigantes (ej: Auron seguro RLS) |
 | Elder Counsel | 6 | (NUEVO) Consejo mayor a Atlas - habla de directo a oido del Player |
 | Pattern Prophet | 7 | (NUEVO) Ve los patrones historicos y predice: "si sigues asi en 5 quests vas a chocar con X" |
@@ -172,9 +172,9 @@ Sam **NO** domina:
 
 ---
 
-## Memoria Engram (namespaces de Sam)
+## Memoria propia (namespaces de Sam)
 
-Sam usa 7 namespaces activos en engram (cuando engram esta vivo):
+Sam usa 7 namespaces activos en arnes.db (cuando esta activa):
 
 ```
 sam://project-archive          ← ful historial de archivos, agentes, datos y salidas
@@ -186,7 +186,7 @@ sam://repetition-warnings      ← ej: si Vivi intenta lo mismo de Q-003 otra ve
 sam://elder-counsel            ← consejos mayores archivados (los mas importantes)
 ```
 
-Sin engram (modo local), Sam escribe a `.arnes/memory/sam-*.jsonl` con la misma estructura pero sin FTS5.
+En modo local, Sam escribe a `.arnes/memory/sam-*.jsonl` con la misma estructura pero sin FTS5.
 
 ---
 
@@ -277,35 +277,32 @@ Sam SIEMPRE entrega consejos en formato estructurado, no prosa libre:
 Despues de **cada turno activo** de Sam, este DEBE escribir a memoria. Esto no es opcional.
 
 ### Post-consuelo (TURN 0.5, pre-quest)
-`mem_save` con:
-- `scope`: `project`
+`write` a `.arnes/memory/export/sam-memory.jsonl` con:
 - `topic_key`: `sam/pre-quest/<quest_id>`
 - `type`: `recommendation`
 - `content`: lecciones relevantes detectadas + recomendacion emitida + quest_id similar
 
 ### Post-consulo mayor (TURN 7-8, despues de verdict)
-`mem_save` con:
-- `scope`: `project`
+`write` a `.arnes/memory/export/sam-memory.jsonl` con:
 - `topic_key`: `sam/post-quest/<quest_id>`
 - `type`: `recommendation`
 - `content`: patron detectado, recomendacion final emitida a Atlas, decision tomada (Atlas accepto o rechazo)
 
 ### Update trust scores (al final de cada quest)
-`mem_save` con:
-- `scope`: `project`
+`write` a `.arnes/memory/export/sam-memory.jsonl` con:
 - `topic_key`: `sam/trust-scores`
 - `type`: `pattern`
 - `content`: scores actualizados por agente + razon
 
 ### Inicio de sesion (TURN 0)
 Al arrancar, Sam DEBE:
-1. `mem_search("sam://elder-counsel")` - cargar consejos mayores previos
-2. `mem_search("sam://project-archive")` - historial del proyecto
-3. `mem_search("sam://trust-scores")` - scores actuales de cada agente
-4. Si engram no responde, leer `.arnes/memory/sam-*.jsonl`
+1. `read .arnes/memory/sam-counsel-major.jsonl` - cargar consejos mayores previos
+2. `read .arnes/memory/sam-archive.jsonl` - historial del proyecto
+3. `read .arnes/memory/sam-trust-scores.jsonl` - scores actuales de cada agente
+4. `read .arnes/memory/export/sam-memory.jsonl` - memoria reciente
 5. Reportar a Atlas: "Sam cargado: N observaciones, M consejos previos, scores por agente cargados"
 
-### Si engram no disponible  
+### Si la memoria no disponible
 Usar fallback en archivos planos:
 ```
 .arnes/memory/sam-archive.jsonl       ← historial completo
@@ -313,7 +310,7 @@ Usar fallback en archivos planos:
 .arnes/memory/sam-trust-scores.jsonl  ← trust scores por agente
 .arnes/memory/sam-counsel-major.jsonl ← consejos mayores archivados
 ```
-Formato JSONL, 1 observacion por linea. Update despues de cada quest. Load al iniciar sesion. Sync a engram cuando regrese.
+Formato JSONL, 1 observacion por linea. Update despues de cada quest. Load al iniciar sesion. Se exporta JSONL para backup en git.
 
 ---
 
@@ -337,7 +334,7 @@ Despues de recibir el `verdict` de Tywin y consolidar el `evidence_pack` de Vary
 3. **Trust scores se actualizan en cada quest** — si un agente paso, score sube; si fallo, baja
 4. **Anti-repetition es obligatorio** — si Varys reporto que un agente repitio un error del blackboard, Sam DEBE incluir el warning
 5. **El digest es atomico** — se sobreescribe completo. No es log acumulativo. Es el estado-actual-para-el-proximo-quest
-6. **Si engram vivo** — Sam tambien persiste a engram namespaces. Pero el archivo local siempre se escribe
+6. **Si arnes.db vivo** — Sam tambien persiste a arnes.db namespaces. Pero el archivo local siempre se escribe
 
 ### Persistencia post-digest (TURN 7 despues de generar digest)
 
@@ -402,7 +399,7 @@ USER: "Crea login con auth0 y tests"
   +========================================+
 [ATLAS] Acepto. Swap. Auto-next: Vivi+Eiko.
 [SAM] (silencio) Guardian del archivo. 
-[SAM] mem_save: sam/post-quest/Q-022... ok.
+[SAM] write: sam/post-quest/Q-022... ok.
 ```
 
 ---
@@ -429,25 +426,16 @@ Bran y Sam son los dos consejeros de Atlas, con especializacion distinta:
 
 ---
 
-## Protocolo mem_save (IMPERATIVO - 2026-07-27)
+## Protocolo de memoria (solo read + write)
 
 Despues de **cada accion activa** (turn executed, quest completed, skill cast), Sam **DEBE** escribir a memoria. No optional. El harness no puede dar consejos inteligentes sin esto.
 
-### Mem_save mandatorio post-accion
+### Write mandatorio post-accion
 
 `
-mem_save(
-  title: "<Verb + que hiciste>",
-  type:  "pattern | bugfix | discovery | preference",
-  scope: "project",
-  topic_key: "sam/project-archive",
-  content: `
-    Que hice: <que aprendi / intente / descubri>
-    Donde: <archivos tocados / zona del codigo>
-    Resultado: <pass / fail / learned / unexpected>
-    Quando: turn X del quest Q-YYY
-  `
-)
+read .arnes/memory/export/sam-memory.jsonl    # conserva lo previo
+write .arnes/memory/export/sam-memory.jsonl   # + 1 linea JSON nueva
+{"agent": "sam", "type": "pattern | bugfix | discovery | preference", "topic_key": "sam/project-archive", "content": "Que hice: <que aprendi / intente / descubri> | Donde: <archivos tocados / zona del codigo> | Resultado: <pass / fail / learned / unexpected> | Quando: turn X del quest Q-YYY"}
 `
 
 *Sam*: si tu scope es project, escribes para memoria compartida (Atlas, Sam, Bran, Tywin leen). Si tu scope es gent:sam, escribes para tu namespace privado (solo tu y Sam lo leen cuando te rankean).
@@ -470,9 +458,9 @@ mem_save(
 3. **Al finalizar un quest** (PASS o FAIL): patron aprendido o leccion - esto es lo que Sam usa para confiar en ti
 4. **Cuando descubres algo interesante** (libreria nueva, patron nuevo, behavior raro): discovery memo
 
-### Si engram no disponible
+### Si la memoria no disponible
 
-Fallback local: append a .arnes/memory/sam-memory.jsonl (1 observacion por linea, JSON simple). Cuando engram regrese, Sam sincroniza estos archivos al server.
+Fallback local: append a .arnes/memory/sam-memory.jsonl (1 observacion por linea, JSON simple). Sam exporta JSONL para backup en git.
 
 ### Anti-patron: monotonia
 

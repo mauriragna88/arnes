@@ -14,32 +14,34 @@ El review es por FEATURE (rápido y enfocado), no un mega-audit de todo el set.
 ## Flujo
 
 1. Leer feature-plan: `.arnes/fdd/<FL>/F<N>-plan.md` (criterios de done)
-2. Ejecutar verificaciones reales:
-   - `npm run lint`, `npm run typecheck`, `npm test`, `npm run build`
+2. Verificar con lectura directa (solo read — sin comandos):
+   - `read` los archivos de la feature (tipos, estructura, imports, contrato)
+   - `read` los tests de la feature si existen
+   - contrastar cada criterio del plan contra lo leido
 3. Contrastar cada criterio del plan contra el código
 4. Kuja: tests de la feature (proporcional — trivial = poco, complejo = completo)
 5. Tywin: verdict PASS / FAIL_PARTIAL / FAIL_TOTAL con evidencia
-6. Guardar verdict: `arnes-memory save -Agent tywin -Topic tywin/verdicts`
+6. Guardar verdict: `write` una linea en `.arnes/memory/export/tywin-memory.jsonl` (topic `tywin/verdicts`, type `verdict`)
 
 ## Output esperado
 
 ```
 FEATURE F<N> REVIEW:
   - Criterios: 5/5 cumplidos
-  - lint/types/tests/build: PASS
+  - Archivos leidos: <lista> / tipos-imports-tests: PASS
   - Verdict: PASS
-  - Evidencia: <comandos + resultados>
+  - Evidencia: <archivos leidos + criterios contrastados>
 ```
 
 ## Reglas
 
-1. **Evidencia, no opinión** — cada check con comando ejecutado
+1. **Evidencia, no opinión** — cada check con archivo leido (read) y criterio contrastado
 2. **FAIL = remediation** — qué falta exactamente para el siguiente intento
 3. **Proporcionalidad** — una feature S no necesita el mismo review que una L
 4. **Guardar verdict** — la memoria sabe si la feature pasó o no
 
-## Comando de referencia
+## Referencia de archivos
 
-```powershell
-Get-Content .arnes/fdd/<FL>/F<N>-plan.md
+```
+read .arnes/fdd/<FL>/F<N>-plan.md
 ```

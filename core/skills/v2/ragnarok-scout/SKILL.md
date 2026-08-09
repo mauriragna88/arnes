@@ -22,14 +22,15 @@ El departamento de compras del arnes: que nunca nos quedemos atrás de la indust
 
 ## Pasos (procedimiento PROPIO del arnes)
 1. **RECALL**: qué usamos hoy
-   `arnes-memory.ps1 search -Agent ragnarok -Query "<dominio>"`
-   `arnes-graph.ps1 stats` — mapa actual
-2. **Scout**: buscar en la web — repos GitHub (stars, actividad), Reddit (r/ClaudeAI,
-   r/codex, r/LocalLLaMA), X, awesome-lists, skills.sh
+   `read .arnes/memory/export/ragnarok-memory.jsonl`
+   `read .arnes/graph/edges.jsonl` — mapa actual
+2. **Scout**: la búsqueda web externa la hace el harness por fuera de la skill.
+   El agente `read` los resultados que ya están en memoria (`ragnarok/scout-results`,
+   `ragnarok/comparativas`) y las docs del repo.
 3. **Filtrar**: relevancia al arnes, mantenimiento, licencia, compatibilidad
 4. **War Cry (comparativa)**: lo nuevo vs lo actual en tabla pros/cons + ROI
 5. **Recomendar**: ADOPTAR / ESPERAR / NO (con justificación)
-6. **GUARDAR**: `arnes-memory.ps1 save -Agent ragnarok -Topic "ragnarok/scout-results" -Type discovery`
+6. **GUARDAR**: `write` una linea en `.arnes/memory/export/ragnarok-memory.jsonl` (topic `ragnarok/scout-results`, type `discovery`)
    + comparativas y rechazos (para no re-investigar lo mismo)
 7. **Documentar**: si se adopta, actualizar docs/ del repo
 
@@ -39,11 +40,11 @@ El departamento de compras del arnes: que nunca nos quedemos atrás de la indust
 ## Complementos web (arsenal, NO dependencia)
 | Skill web | Cuándo la potencia |
 |---|---|
-| websearch / context7 | investigación de fuentes |
+| investigacion-fuentes | investigación de fuentes (la corre el harness) |
 
 ## Memoria
-- **Antes**: `search -Agent ragnarok` (scout-results, comparativas, rechazos)
-- **Después**: `save -Agent ragnarok` (scout-results, adopciones, rechazos, xp)
+- **Antes**: `read .arnes/memory/export/ragnarok-memory.jsonl` (scout-results, comparativas, rechazos)
+- **Después**: `write` a `.arnes/memory/export/ragnarok-memory.jsonl` (scout-results, adopciones, rechazos, xp)
 
 ## Reglas de la skill
 1. Evidencia, no moda — con fuente y datos

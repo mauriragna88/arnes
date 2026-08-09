@@ -29,11 +29,11 @@ La fase **propose** define QUÉ queremos lograr y si vale la pena.
 2. **L0**: si el cambio es L0, marcar `L0: sí` — Auron hará el L0 Gate
 3. **Buscar en memoria**: consulta arnes-graph y arnes-memory si algo similar ya existe
 4. **Criterios verificables**: nada de "funciona bien" — "test X pasa" o "lint limpio"
-5. **Guardar decisión**: al aprobar/rechazar → `arnes-memory save -Agent atlas -Topic atlas/decisions`
+5. **Guardar decisión**: al aprobar/rechazar → `write` una linea en `.arnes/memory/export/atlas-memory.jsonl` (topic `atlas/decisions`, type `decision`)
 
-## Comando de referencia
+## Referencia de archivos
 
-```powershell
+```
 # Ver template
-Get-Content .arnes/sdd/templates/proposal.md
+read .arnes/sdd/templates/proposal.md
 ```

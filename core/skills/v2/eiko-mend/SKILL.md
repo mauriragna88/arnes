@@ -18,13 +18,13 @@ Sanar el entorno de desarrollo: builds, CI/CD, deploys, containers.
 - Contexto del quest que falló
 
 ## Pasos (procedimiento PROPIO del arnes)
-1. **RECALL**: `arnes-memory.ps1 search -Agent eiko -Query "<tipo de error>"`
+1. **RECALL**: `read .arnes/memory/export/eiko-memory.jsonl`
    memoria `eiko/build-failures` — si es un error conocido, aplicar fix documentado
 2. **Diagnóstico**: leer el error real (log), identificar ROOT CAUSE no el síntoma
 3. **Fix mínimo**: el cambio más pequeño que arregla (no refactors durante un rescate)
 4. **Verificar**: build pasa → tests pasan → deploy dry-run si aplica
-5. **GUARDAR**: `arnes-memory.ps1 save -Agent eiko -Topic "eiko/build-failures" -Type bugfix`
-6. **GRAFO**: registrar la relación del fix si toca nodos nuevos
+5. **GUARDAR**: `write` una linea en `.arnes/memory/export/eiko-memory.jsonl` (topic `eiko/build-failures`, type `bugfix`)
+6. **GRAFO**: `write` la relacion del fix en `.arnes/graph/edges.jsonl` si toca nodos nuevos
 
 ## Output esperado
 - Build/CI/deploy funcionando, con la causa raíz documentada en memoria
@@ -38,8 +38,8 @@ Sanar el entorno de desarrollo: builds, CI/CD, deploys, containers.
 | git-discipline | conflictos de merge |
 
 ## Memoria
-- **Antes**: `search -Agent eiko` (build-failures, ci-cd-fixes, deployment-issues)
-- **Después**: `save -Agent eiko` (build-failures, vivi-care, xp)
+- **Antes**: `read .arnes/memory/export/eiko-memory.jsonl` (build-failures, ci-cd-fixes, deployment-issues)
+- **Después**: `write` a `.arnes/memory/export/eiko-memory.jsonl` (build-failures, vivi-care, xp)
 
 ## Reglas de la skill
 1. Root cause, no síntoma

@@ -1,4 +1,4 @@
-{
+﻿{
   "agent": "quina",
   "name": "Quina",
   "class": "Banker",
@@ -16,7 +16,7 @@
       "level": 2,
       "cost_mp": 300,
       "description": "Reporta gasto de tokens por agente por quest. Output: /status.",
-      "cast": "engram fetch | agrega tokens | output table: agent × quest × tokens × cost",
+      "cast": "arnes.db fetch | agrega tokens | output table: agent × quest × tokens × cost",
       "unlock_at": 100
     },
     {
@@ -32,7 +32,7 @@
       "level": 4,
       "cost_mp": 800,
       "description": "Aprende del gasto pasado y recomienda routing de modelos en quests similares.",
-      "cast": "engram search past quests | sugerir modelo barato para esto",
+      "cast": "arnes.db search past quests | sugerir modelo barato para esto",
       "unlock_at": 600
     },
     {

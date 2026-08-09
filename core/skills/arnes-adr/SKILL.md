@@ -1,4 +1,4 @@
----
+﻿---
 name: arnes-adr
 description: >
   ARNES ADR - Architecture Decision Records. Registra cada decision de arquitectura del
@@ -23,12 +23,16 @@ y el "porque" se pierde. Con ADR, cualquier agente (o el usuario) puede consulta
    - **Consecuencias**: positivas + negativas/riesgos
    - **Razón**: por qué esta sobre las demás
 3. Guardar en memoria:
-   ```powershell
-   .\cli\arnes-memory.ps1 save -Agent amarant -Topic "amarant/arch-decisions" -Type decision -Content "ADR-NNN: <titulo> - <resumen>"
+   ```
+   read .arnes/memory/export/amarant-memory.jsonl
+   write .arnes/memory/export/amarant-memory.jsonl
+     (contenido previo + 1 linea: {"agent":"amarant","topic_key":"amarant/arch-decisions","type":"decision","content":"ADR-NNN: <titulo> - <resumen>"})
    ```
 4. Conectar en grafo si aplica:
-   ```powershell
-   .\cli\arnes-graph.ps1 add -NodeA "<decision>" -NodeB "<tecnologia>" -Relation "decided" -Agent amarant
+   ```
+   read .arnes/graph/edges.jsonl
+   write .arnes/graph/edges.jsonl
+     (contenido previo + 1 linea: {"source":"<decision>","target":"<tecnologia>","relation":"decided","agent":"amarant"})
    ```
 
 ## Reglas
@@ -42,12 +46,12 @@ y el "porque" se pierde. Con ADR, cualquier agente (o el usuario) puede consulta
 
 ## Ejemplos de ADR ya registrados (2026-08-05)
 
-- ADR-001: Memoria SQLite+FTS5 (no JSONL, no engram)
-- ADR-002: SDD/FDD/ADR propios (sin gentle-ai)
+- ADR-001: Memoria SQLite+FTS5 (no JSONL, sin memoria externa)
+- ADR-002: SDD/FDD/ADR propios (con metodos propios)
 - ADR-003: Skills v2 propias + web como complemento
 
 ## Comando de referencia
 
-```powershell
-Get-Content .arnes/adr/template.md
+```
+read .arnes/adr/template.md
 ```

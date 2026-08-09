@@ -19,14 +19,14 @@ Ver el estado real del proyecto y el harness con números, no con intuiciones.
 - Datos de memoria (quests completados, tokens usados)
 
 ## Pasos (procedimiento PROPIO del arnes)
-1. **RECALL**: `arnes-memory.ps1 quests` — historial de quests
-   `arnes-memory.ps1 stats` — estado del cerebro
-   `arnes-graph.ps1 stats` — mapa de relaciones
+1. **RECALL**: `read .arnes/memory/export/atlas-memory.jsonl` — historial de quests
+   `read .arnes/memory/export/*.jsonl` — estado del cerebro
+   `read .arnes/graph/edges.jsonl` — mapa de relaciones
 2. **Analizar repo**: estructura, archivos, dead code (exports no usados, archivos huérfanos)
 3. **Calcular % completado**: basado en tasks del change activo (tasks.md) o hitos
 4. **Detectar oportunidades**: agente sub-utilizado, skill faltante, mejora de proceso
 5. **Emitir reporte**: números concretos + recomendación
-6. **GUARDAR**: `arnes-memory.ps1 save -Agent bran -Topic "bran/completion-history" -Type discovery`
+6. **GUARDAR**: `write` una linea en `.arnes/memory/export/bran-memory.jsonl` (topic `bran/completion-history`, type `discovery`)
 
 ## Output esperado
 - Reporte con % completado, dead code, growth hint (qué agente/skill usar más)
@@ -37,8 +37,8 @@ Ver el estado real del proyecto y el harness con números, no con intuiciones.
 | project-structure | análisis de organización |
 
 ## Memoria
-- **Antes**: `search -Agent bran` (completion-history, growth-hints)
-- **Después**: `save -Agent bran` (completion-history, xp)
+- **Antes**: `read .arnes/memory/export/bran-memory.jsonl` (completion-history, growth-hints)
+- **Después**: `write` a `.arnes/memory/export/bran-memory.jsonl` (completion-history, xp)
 
 ## Reglas de la skill
 1. Hablar con números, no con opiniones

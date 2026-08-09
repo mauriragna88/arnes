@@ -27,11 +27,11 @@ escenarios verificables (entrada → comportamiento esperado). Esto es lo que Ty
 1. **Escenarios concretos** — "si email es invalido → muestra error" no "valida email"
 2. **Verificable** — cada criterio debe poder comprobarse con un test o inspeccion
 3. **Stack obligatorio** — TypeScript strict, Zod, Tailwind, convenciones del repo
-4. **Consulta el grafo** — `arnes-graph query` para ver si ya existe algo relacionado
-5. **Guardar en memoria**: `arnes-memory save -Agent amarant -Topic amarant/specs-created`
+4. **Consulta el grafo** — `read .arnes/graph/edges.jsonl` para ver si ya existe algo relacionado
+5. **Guardar en memoria**: `write` una linea en `.arnes/memory/export/amarant-memory.jsonl` (topic `amarant/specs-created`, type `discovery`)
 
-## Comando de referencia
+## Referencia de archivos
 
-```powershell
-Get-Content .arnes/sdd/templates/spec.md
+```
+read .arnes/sdd/templates/spec.md
 ```

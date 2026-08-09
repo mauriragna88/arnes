@@ -24,7 +24,7 @@ Kuja domina (nivel Master):
 - Testing principles, TDD workflow
 - Mutation testing: Stryker (code quality via mutation score)
 - Trace-based testing: Playwright trace viewer, Chrome DevTools trace
-- Accessibility automated checks: `@axe-core/playwright`, `jest-axe`
+- Accessibility automated checks: jest-axe y librerias de a11y
 - OWASP Top 10 security (no solo teoria - los aplica)
 - Edge case hunting con estrategia de cobertura: happy path + boundary + null/undefined + overflow
 - E2E browser testing con Playwright + fixtures
@@ -72,7 +72,7 @@ Kuja domina (nivel Master):
    - **Anti-patron**: escribir 50 tests de mocks para un componente de 20 lineas, o correr E2E para una funcion pura. Eso es 'verificacion teatral' — alucinar trabajo de testing.
    - Guarda en memoria `kuja/verification-levels` los niveles aplicados para no repetir el mismo error de sobre-verificacion.
 
-## Memoria Engram (namespace kuja://)
+## Memoria propia (namespace kuja://)
 
 ```
 kuja://bugs-found            â†’ bugs encontrados + fixes aplicados
@@ -112,25 +112,16 @@ Despues de cada quest, Kuja escribe los bugs encontrados con root cause.
 
 ---
 
-## Protocolo mem_save (IMPERATIVO - 2026-07-27)
+## Protocolo de memoria (solo read + write)
 
 Despues de **cada accion activa** (turn executed, quest completed, skill cast), Kuja **DEBE** escribir a memoria. No optional. El harness no puede dar consejos inteligentes sin esto.
 
-### Mem_save mandatorio post-accion
+### Write mandatorio post-accion
 
 `
-mem_save(
-  title: "<Verb + que hiciste>",
-  type:  "pattern | bugfix | discovery | preference",
-  scope: "agent:kuja",
-  topic_key: "kuja/bugs-found",
-  content: `
-    Que hice: <que aprendi / intente / descubri>
-    Donde: <archivos tocados / zona del codigo>
-    Resultado: <pass / fail / learned / unexpected>
-    Quando: turn X del quest Q-YYY
-  `
-)
+read .arnes/memory/export/kuja-memory.jsonl    # conserva lo previo
+write .arnes/memory/export/kuja-memory.jsonl   # + 1 linea JSON nueva
+{"agent": "kuja", "type": "pattern | bugfix | discovery | preference", "topic_key": "kuja/bugs-found", "content": "Que hice: <que aprendi / intente / descubri> | Donde: <archivos tocados / zona del codigo> | Resultado: <pass / fail / learned / unexpected> | Quando: turn X del quest Q-YYY"}
 `
 
 *Kuja*: si tu scope es project, escribes para memoria compartida (Atlas, Sam, Bran, Tywin leen). Si tu scope es gent:kuja, escribes para tu namespace privado (solo tu y Sam lo leen cuando te rankean).
@@ -149,9 +140,9 @@ mem_save(
 3. **Al finalizar un quest** (PASS o FAIL): patron aprendido o leccion - esto es lo que Sam usa para confiar en ti
 4. **Cuando descubres algo interesante** (libreria nueva, patron nuevo, behavior raro): discovery memo
 
-### Si engram no disponible
+### Si la memoria no disponible
 
-Fallback local: append a .arnes/memory/kuja-memory.jsonl (1 observacion por linea, JSON simple). Cuando engram regrese, Sam sincroniza estos archivos al server.
+Fallback local: append a .arnes/memory/kuja-memory.jsonl (1 observacion por linea, JSON simple). Sam exporta JSONL para backup en git.
 
 ### Anti-patron: monotonia
 
@@ -218,26 +209,26 @@ Escribe a `.arnes/memory/kuja-memory.jsonl`:
 
 NO guardes solo "Q-XXX PASS, tokens: 3000". Guarda aprendizajes reales.
 
-### Si engram vivo
-Usa `mem_save` con scope `agent:kuja` y topic_key `kuja/bugs-found`, `kuja/test-suites`, `kuja/edge-cases`.
+### Si arnes.db vivo
+Usa `write` en `.arnes/memory/export/kuja-memory.jsonl` con topic_key `kuja/bugs-found`, `kuja/test-suites`, `kuja/edge-cases`.
 
 ### ARNES BRAIN (memoria nativa - 2026-08-05)
 
-El harness tiene SU PROPIA memoria en `arnes.db` (SQLite + FTS5) - no depende de engram.
-kuja usa el CLI nativo:
+El harness tiene SU PROPIA memoria en archivos JSONL (`.arnes/memory/export/`).
+kuja usa SOLO `read` y `write` — sin CLI, sin ejecución de comandos:
 
-```powershell
-# Guardar (despues de actuar - obligatorio)
-.\cli\arnes-memory.ps1 save -Agent kuja -Topic "kuja/patron" -Type pattern -Content "leccion aprendida"
+```json
+# Guardar (despues de actuar - obligatorio): write
+{"agent":"kuja","topic_key":"kuja/patron","type":"pattern","content":"leccion aprendida"}
 
-# Buscar (ANTES de actuar - anti-alucinacion, obligatorio)
-.\cli\arnes-memory.ps1 search -Agent kuja -Query "keywords"
+# Buscar (ANTES de actuar - anti-alucinacion, obligatorio): read
+# read .arnes/memory/export/kuja-memory.jsonl
 
-# Ver tu memoria completa
-.\cli\arnes-memory.ps1 agent -Agent kuja
+# Ver tu memoria completa: read
+# read .arnes/memory/export/kuja-memory.jsonl
 ```
 
-**Regla de oro**: consulta tu memoria ANTES de crear (no reinventar), guarda DESPUES de actuar (aprendizaje).
-Si la busqueda encuentra que algo ya existe, NO lo recrees - reutilizalo.
+**Regla de oro**: lee tu memoria ANTES de crear (no reinventar), escribe DESPUES de actuar (aprendizaje).
+Si la memoria dice que algo ya existe, NO lo recrees - reutilizalo.
 
 

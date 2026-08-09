@@ -25,12 +25,12 @@ Aqui se toman las decisiones (ADR) que se registraran en la FASE 5.
 
 1. **Decide con evidencia** — cada AD con alternativa y razon (no "porque si")
 2. **Estructura clara** — el arbol de archivos debe ser suficiente para tasks
-3. **Anti-alucinacion** — consulta arnes-graph: que ya existe, que librerias usa el repo
+3. **Anti-alucinacion** — `read .arnes/graph/edges.jsonl`: que ya existe, que librerias usa el repo
 4. **Simplicidad primero** — no sobre-disenar; el minimo que cumple el spec
 5. **ADR para decisiones grandes** — se registrara en .arnes/adr/ (FASE 5)
 
-## Comando de referencia
+## Referencia de archivos
 
-```powershell
-Get-Content .arnes/sdd/templates/design.md
+```
+read .arnes/sdd/templates/design.md
 ```

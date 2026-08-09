@@ -18,16 +18,16 @@ Crear componentes frontend de alta calidad siguiendo el procedimiento propio del
 - Spec/design del change si existe (.arnes/sdd/)
 
 ## Pasos (procedimiento PROPIO del arnes)
-1. **RECALL**: buscar en memoria antes de crear:
-   `arnes-memory.ps1 search -Agent vivi -Query "<tipo de componente>"`
-   `arnes-graph.ps1 query -Node "<nombre>"` — si ya existe, REUTILIZAR, no recrear
+1. **RECALL**: leer memoria antes de crear (solo read):
+   `read .arnes/memory/export/vivi-memory.jsonl`
+   `read .arnes/graph/edges.jsonl` — si ya existe, REUTILIZAR, no recrear
 2. **Revisar preferencias**: memoria `vivi/ui-patterns` (dark mode + rojo atlas + container queries)
 3. **Estructura**: Server Component por defecto; `use client` solo si necesita hooks de browser
 4. **Implementar**: TypeScript strict (sin any), Tailwind responsive mobile-first, estados
    loading/error/empty, ARIA roles, zod si valida inputs
 5. **Verificar**: lint + typecheck + test del archivo (regla Kuja proporcional: trivial = 1-2 tests)
-6. **GUARDAR**: `arnes-memory.ps1 save -Agent vivi -Topic "vivi/components-built" -Type pattern -Content "<componente>"`
-7. **GRAFO**: `arnes-graph.ps1 add -NodeA "<Componente>.tsx" -NodeB "<libreria>" -Relation uses -Agent vivi`
+6. **GUARDAR**: `write` una linea en `.arnes/memory/export/vivi-memory.jsonl` (topic `vivi/components-built`, type `pattern`, content "<componente>")
+7. **GRAFO**: `write` la relacion en `.arnes/graph/edges.jsonl` (source "<Componente>.tsx", target "<libreria>", relation uses, agent vivi)
 
 ## Output esperado
 - Componente .tsx/.tsx funcional, tipado, accesible, con sus tests si la lógica lo amerita
@@ -41,8 +41,8 @@ Crear componentes frontend de alta calidad siguiendo el procedimiento propio del
 | accessibility | WCAG + ARIA |
 
 ## Memoria
-- **Antes**: `search -Agent vivi` (components-built, ui-patterns, failed-attempts)
-- **Después**: `save -Agent vivi` (components-built, ui-patterns, xp)
+- **Antes**: `read .arnes/memory/export/vivi-memory.jsonl` (components-built, ui-patterns, failed-attempts)
+- **Después**: `write` a `.arnes/memory/export/vivi-memory.jsonl` (components-built, ui-patterns, xp)
 
 ## Reglas de la skill
 1. Server Component por defecto

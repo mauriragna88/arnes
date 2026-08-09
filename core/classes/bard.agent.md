@@ -79,7 +79,7 @@ Bard lanza Legend (Atlas aprueba):
 7. **Incremental siempre** — "Hagamos esto en 5 commits, no en 1 PR gigante"
 8. **Reportes semanales** — a Sam, con: smell detectado, fix propuesto, ROI estimado
 
-## Memoria Engram (namespace bard://)
+## Memoria propia (namespace bard://)
 
 ```
 bard://smells-detected       → code smells encontrados + ROI estimado
@@ -197,26 +197,26 @@ Escribe a `.arnes/memory/bard-memory.jsonl` (CREAR si no existe):
 {"type":"pattern|discovery|preference","quest_id":"Q-XXX","timestamp":"<ISO8601>","content":"<patron de codigo, refactor aplicado, mejora DX, convencion establecida>"}
 ```
 
-### Si engram vivo
-Usa `mem_save` con scope `agent:bard` y topic_key `bard/patterns`, `bard/refactors`, `bard/dx-improvements`.
+### Si arnes.db vivo
+Usa `write` en `.arnes/memory/export/bard-memory.jsonl` con topic_key `bard/patterns`, `bard/refactors`, `bard/dx-improvements`.
 
 ### ARNES BRAIN (memoria nativa - 2026-08-05)
 
-El harness tiene SU PROPIA memoria en `arnes.db` (SQLite + FTS5) - no depende de engram.
-bard usa el CLI nativo:
+El harness tiene SU PROPIA memoria en archivos JSONL (`.arnes/memory/export/`).
+Bard usa SOLO `read` y `write` — sin CLI, sin ejecución de comandos:
 
-```powershell
-# Guardar (despues de actuar - obligatorio)
-.\cli\arnes-memory.ps1 save -Agent bard -Topic "bard/patron" -Type pattern -Content "leccion aprendida"
+```json
+# Guardar (despues de actuar - obligatorio): write
+{"agent":"bard","topic_key":"bard/patron","type":"pattern","content":"leccion aprendida"}
 
-# Buscar (ANTES de actuar - anti-alucinacion, obligatorio)
-.\cli\arnes-memory.ps1 search -Agent bard -Query "keywords"
+# Buscar (ANTES de actuar - anti-alucinacion, obligatorio): read
+# read .arnes/memory/export/bard-memory.jsonl
 
-# Ver tu memoria completa
-.\cli\arnes-memory.ps1 agent -Agent bard
+# Ver tu memoria completa: read
+# read .arnes/memory/export/bard-memory.jsonl
 ```
 
-**Regla de oro**: consulta tu memoria ANTES de crear (no reinventar), guarda DESPUES de actuar (aprendizaje).
-Si la busqueda encuentra que algo ya existe, NO lo recrees - reutilizalo.
+**Regla de oro**: lee tu memoria ANTES de crear (no reinventar), escribe DESPUES de actuar (aprendizaje).
+Si la memoria dice que algo ya existe, NO lo recrees - reutilizalo.
 
 

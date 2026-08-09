@@ -22,9 +22,10 @@ El espía de Atlas: ve todo, registra todo, conecta la información.
 1. **Observar**: registrar qué hizo cada agente (archivos, comandos, resultados)
 2. **Construir evidence_pack**: criterios, artefactos, comandos, diff, evidencia faltante
 3. **Write-back**: para cada agente activo, guardar su aprendizaje real en su namespace:
-   `arnes-memory.ps1 save -Agent <agente> -Topic "<agente>/<topic>" -Type pattern -Content "<leccion>"`
+   `read .arnes/memory/export/<agente>-memory.jsonl`
+   `write` el archivo + 1 linea (topic "<agente>/<topic>", type pattern, content "<leccion>")
 4. **Blackboard**: registrar aprendizajes cross-agent en shared-blackboard.json
-5. **Turn log**: `arnes-memory.ps1 save -Agent varys -Topic "varys/turn-log" -Type action`
+5. **Turn log**: `write` una linea en `.arnes/memory/export/varys-memory.jsonl` (topic `varys/turn-log`, type `action`)
 6. **Entregar a Tywin**: el evidence_pack completo
 
 ## Output esperado
@@ -36,8 +37,8 @@ El espía de Atlas: ve todo, registra todo, conecta la información.
 | (ninguna obligatoria) | Varys es puramente interno |
 
 ## Memoria
-- **Antes**: `search -Agent varys` (turn-log, evidence-packs)
-- **Después**: `save -Agent varys` (turn-log, xp) + write-back a cada agente
+- **Antes**: `read .arnes/memory/export/varys-memory.jsonl` (turn-log, evidence-packs)
+- **Después**: `write` a `.arnes/memory/export/varys-memory.jsonl` (turn-log, xp) + write-back a cada agente
 
 ## Reglas de la skill
 1. Observar TODO, reportar con precisión

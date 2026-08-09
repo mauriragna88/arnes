@@ -15,10 +15,10 @@ el feature-plan y usa las skills propias del agente (vivi-fireball, ansem-smite.
 
 1. Leer el feature-plan: `.arnes/fdd/<FL>/F<N>-plan.md`
 2. Leer la feature-list para contexto del set completo
-3. RECALL (anti-alucinacion):
-   ```powershell
-   .\cli\arnes-memory.ps1 search -Agent <tu> -Query "<keywords de la feature>"
-   .\cli\arnes-graph.ps1 query -Node "<componente/dominio>"
+3. RECALL (anti-alucinacion) — solo read:
+   ```
+   read .arnes/memory/export/<tu>-memory.jsonl   # tu memoria
+   read .arnes/graph/edges.jsonl                  # mapa de relaciones
    ```
 4. Ejecutar cada tarea del plan (T1, T2, T3...) con la skill propia del agente:
    - Vivi → vivi-fireball (componentes)
@@ -26,8 +26,8 @@ el feature-plan y usa las skills propias del agente (vivi-fireball, ansem-smite.
    - Kuja → kuja-backstab (tests, TDD proporcional)
    - Eiko → eiko-mend (build/CI)
 5. Verificar por tarea: lint + types + tests del archivo tocado
-6. Guardar aprendizaje: `arnes-memory save -Agent <tu> -Topic <tu>/<topic>`
-7. Registrar relaciones: `arnes-graph add` (nodos creados/tocados)
+6. Guardar aprendizaje: `write` una linea en `.arnes/memory/export/<tu>-memory.jsonl` (topic `<tu>/<topic>`)
+7. Registrar relaciones: `write` las relaciones nuevas en `.arnes/graph/edges.jsonl` (nodos creados/tocados)
 
 ## Reglas
 

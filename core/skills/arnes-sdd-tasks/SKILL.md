@@ -23,14 +23,14 @@ y los agentes saben exactamente que hacer.
 ## Reglas
 
 1. **Tareas pequenas** — 5-15 min cada una, no megatareas
-2. **Archivo exacto** — "editar src/components/Login.tsx" no "el login"
+2. **Archivo exacto** — "reescribir (write) src/components/Login.tsx" no "el login"
 3. **Verificacion concreta** — "lint pasa", "test LoginForm pasa", no "revisar"
 4. **Asignacion por skill** — frontend→vivi, backend→ansem, tests→kuja (regla de proporcionalidad)
 5. **Tokens estimados** — para que Quina controle el presupuesto
 6. **Dependencias explicitas** — que tarea debe terminar antes
 
-## Comando de referencia
+## Referencia de archivos
 
-```powershell
-Get-Content .arnes/sdd/templates/tasks.md
+```
+read .arnes/sdd/templates/tasks.md
 ```

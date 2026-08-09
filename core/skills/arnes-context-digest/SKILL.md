@@ -24,14 +24,16 @@ pocas observaciones de calidad, no miles de fragmentos.
 ## Como consolidar
 
 ### Paso 1 — Revisar lo que se guardo hoy
-```powershell
-.\cli\arnes-memory.ps1 context
-.\cli\arnes-memory.ps1 agent -Agent <tu_nombre>
+```
+read .arnes/memory/export/<tu_nombre>-memory.jsonl
+read .arnes/memory/export/*.jsonl   # contexto del harness
 ```
 
 ### Paso 2 — Resumir en un digest (guardar como observacion tipo session_summary)
-```powershell
-.\cli\arnes-memory.ps1 save -Agent <tu_nombre> -Topic "<tu>/digest-YYYY-MM-DD" -Type session_summary -Content "RESUMEN COMPACTO DEL DIA"
+```
+read .arnes/memory/export/<tu_nombre>-memory.jsonl
+write .arnes/memory/export/<tu_nombre>-memory.jsonl
+  (contenido previo + 1 linea: {"agent":"<tu_nombre>","topic_key":"<tu>/digest-YYYY-MM-DD","type":"session_summary","content":"RESUMEN COMPACTO DEL DIA"})
 ```
 
 Ejemplo de digest (Vivi):
@@ -41,9 +43,10 @@ Patron: dark mode + rojo atlas siempre. Aprendi: usar use client solo para hooks
 Fallo: intente grid en un componente server - no aplica. Proxima vez: client component para interactivos."
 ```
 
-### Paso 3 — Exportar snapshot a JSONL (para git/backup)
-```powershell
-.\cli\arnes-memory.ps1 export
+### Paso 3 — Exportar snapshot (para git/backup)
+```
+Los archivos .arnes/memory/export/*.jsonl YA son el snapshot portable.
+El harness lo exporta por fuera de la skill; el agente no ejecuta comandos.
 ```
 
 ## Formato del digest (compacto y accionable)
@@ -69,6 +72,7 @@ Digest <fecha>:
 Antes de terminar una sesion, Atlas DEBE ejecutar:
 1. Cada agente que trabajo guarda su digest (Paso 2)
 2. Atlas guarda su propio digest: `atlas/digest-YYYY-MM-DD`
-3. `export` a JSONL
+3. Export: los JSONL de `.arnes/memory/export/` quedan como snapshot (harness lo sincroniza)
 4. Actualizar `docs/PLAN-ARNES.md` (fases completadas, gotchas)
-5. Registrar quests finalizados: `quest -Json '{"description":"...","result":"PASS","tokens_used":N}'`
+5. Registrar quests finalizados: escribir una linea en `.arnes/memory/export/atlas-memory.jsonl`
+   con type `action` y topic `atlas/quest-history` (descripcion, result, tokens_used)

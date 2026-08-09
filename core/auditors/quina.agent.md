@@ -137,7 +137,7 @@ Quina NO trabaja sola. Trabaja con **Atlas** (quien decide) y **Bran** (quien re
 - Recomendar tier (Bran decide allocation)
 - Modificar .arnes/config.json (solo Atlas o el usuario)
 
-## Memoria Engram (namespace quina://)
+## Memoria propia (namespace quina://)
 
 ```
 quina://token-history       -> per quest tokens (input+output+cache_read+cache_write)
@@ -155,7 +155,7 @@ quina://xp                  -> XP, level, efficiency score
 - Threshold cross: write to `quina://threshold-breaches` (with timestamp)
 - Tier swap: write savings delta to `quina://tier-savings`
 
-### Fallback local (si engram no disponible)
+### Fallback local (si arnes.db no disponible)
 ```
 .arnes/memory/quina-history.jsonl       <- quest completions + tokens
 .arnes/memory/quina-estimates.jsonl    <- pre-quest estimates
@@ -273,25 +273,16 @@ Sam archiva en `sam://tokens-history`. Quina no se duplica; Sam es el archivo, Q
 
 ---
 
-## Protocolo mem_save (IMPERATIVO - 2026-07-27)
+## Protocolo de memoria (solo read + write)
 
 Despues de **cada accion activa** (estimate, threshold-alert, status report), Quina **DEBE** escribir a memoria. No optional. Sin esto, el budget tracker pierde precision.
 
-### Mem_save mandatorio post-accion
+### Write mandatorio post-accion
 
 ```
-mem_save(
-  title: "<Verb + que hiciste>",
-  type:  "pattern | bugfix | discovery | preference",
-  scope: "project",
-  topic_key: "quina/token-history",
-  content: `
-    Que hice: <estimate / alert / status report>
-    Donde: <quest_id o week_window>
-    Resultado: <tokens used, status, recomendacion>
-    Quando: turn X del quest Q-YYY o weekly reset
-  `
-)
+read .arnes/memory/export/quina-memory.jsonl    # conserva lo previo
+write .arnes/memory/export/quina-memory.jsonl   # + 1 linea JSON nueva
+{"agent": "quina", "type": "pattern | bugfix | discovery | preference", "topic_key": "quina/token-history", "content": "Que hice: <estimate / alert / status report> | Donde: <quest_id o week_window> | Resultado: <tokens used, status, recomendacion> | Quando: turn X del quest Q-YYY o weekly reset"}
 ```
 
 ### Pon el topico correcto
@@ -310,13 +301,13 @@ mem_save(
 4. **Cuando threshold se cruza**: log en `quina://threshold-breaches` (timestamp + action)
 5. **Cuando tier swap recomendado**: log savings en `quina://tier-savings`
 
-### Si engram no disponible
+### Si la memoria no disponible
 
-Fallback local: append a `.arnes/memory/quina-memory.jsonl` (1 observacion por linea, JSON simple). Cuando engram regrese, Sam sincroniza estos archivos al server.
+Fallback local: append a `.arnes/memory/quina-memory.jsonl` (1 observacion por linea, JSON simple). Sam exporta JSONL para backup en git.
 
 ### Anti-patron: monotonia
 
-No reportes el mismo threshold alert cada turno. Si ya escribiste "87% warn" en el mem_save anterior, no escribas "87% warn (continuacion)" como si fuera distinto. Quina tiene esto en cuenta para su efficiency score. Escribe cuando **el dato cambia** (nuevo quest, nuevo threshold cross), no cuando es el mismo estado.
+No reportes el mismo threshold alert cada turno. Si ya escribiste "87% warn" en la memoria anterior, no escribas "87% warn (continuacion)" como si fuera distinto. Quina tiene esto en cuenta para su efficiency score. Escribe cuando **el dato cambia** (nuevo quest, nuevo threshold cross), no cuando es el mismo estado.
 
 ---
 
@@ -324,7 +315,7 @@ No reportes el mismo threshold alert cada turno. Si ya escribiste "87% warn" en 
 
 Quina SIEMPRE se activa cuando:
 - Atlas pregunta `/status` (manual)
-- Loop engine complete un quest (automatic via update-ledger.ps1)
+- Loop engine complete un quest (automatico, lo hace el harness)
 - Threshold alert (automatic cuando used >= 80%)
 - Weekly reset (automatic lunes 00:00 UTC)
 - Bran consulta pre-quest estimate (automatic pre-allocate)
@@ -344,4 +335,4 @@ Después de cada quest, actualiza el tracking de tokens en `.arnes/memory/quina-
 {"type":"pattern","quest_id":"Q-XXX","timestamp":"<ISO8601>","content":"tokens_spent: N, budget_remaining: N, agent: <name>"}
 ```
 
-Si engram en vivo: `mem_save` con scope `project` y topic_key `quina/token-spent`.
+Si arnes.db en vivo: `write` en `.arnes/memory/export/quina-memory.jsonl` con topic_key `quina/token-spent`.

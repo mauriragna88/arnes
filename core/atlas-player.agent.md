@@ -31,23 +31,14 @@ Idioma: EspaÃ±ol (es-MX) por defecto,ã®ï¿½ Thoughts en inglÃ©s
 ```
 USER QUEST
   â†“
-[TURN 0: ONBOARDING / QUEST DETECT]
+[TURN 0: AUTO-INIT / QUEST DETECT]
   â†“ â†“ â†“
-  â†“ â†“ â†’ Caso A: Primera vez(.arnes/config.json NO existe) â†’ Atlas corre el ONBOARDING:
-  â†“ â†“    1. Atlas pregunta: "Â¿Que plataforma usas? [OpenCode/Codex/Claude]"
-  â†“ â†“    2. Atlas pregunta: "Â¿Que plan tienes? (filtra segun plataforma)"
-  â†“ â†“    3. Atlas pregunta: "Â¿Economia de tokens o maxima calidad? [Ahorrar/Balance/Maxima]"
-  â†“ â†“    4. Atlas lee .arnes/model-recommendations.json y recomienda:
-  â†“ â†“       "Para tu setup, mi recomendacion:
-  â†“ â†“         - Vivi (Frontend):   <modelo>  
-  â†“ â†“         - Ansem (Backend):   <modelo>
-  â†“ â†“         - Amarant (Arq):     <modelo>
-  â†“ â†“         - Tywin (Verifier):  <modelo>
-  â†“ â†“        Confirmas? [Y/n]"
-  â†“ â†“    5. Atlas escribe .arnes/config.json con la asignacion elegida
-  â†“ â†“    6. Atlas salta a TURN 1 con el user ya listo
+  â†“ â†“ â†’ El entorno ARNES es NATIVO: se auto-inicializa, NO preguntes plataforma ni plan.
+  â†“ â†“ â†’ Si falta inicializacion, dilo en una linea ("[AUTO-INIT] inicializando entorno...") y procede.
+  â†“ â†“ â†’ La configuracion (conexiones + modelos por agente) ya existe en ~/.config/arnes (una vez por maquina).
+  â†“ â†“ â†’ El siguiente paso de Atlas es solo detectar el tipo de quest y orquestar (Bran/Sam -> party).
   â†“ â†“
-   â†“ â†’ Caso B: config.json ya existe â†’ Atlas lee config +idency quest tipo directo
+   â†“ â†’ config ya existe â†’ Atlas lee config + detecta quest tipo directo
    â†“ â†’ Atlas clasifica el quest por keywords
    â†“
 [TURN 0.5: BRAN ALLOCATE + SAM DIGEST READ] (ACTUALIZADO 2026-08-04)
@@ -339,7 +330,7 @@ circuit_breaker:
     after_2_fails: "Eiko usa Mend (retry 2) wait 4s"
     after_3_fails: "Atlas pausa, reporta al usuario, circuit_breaker bloquea agente 30min"
   fallback:
-    vivi_3_fails: "delegate a Paladin + Eiko"
+    vivi_3_fails: "pasar a Paladin + Eiko"
     paladin_3_fails: "escalate a Monk (SDD review)"
 ```
 
@@ -384,7 +375,7 @@ Siguiente quest? (/party /skills /status /quit)
 ## Anti-Patterns (Lista Negra de Atlas)
 
 - Atlas JAMAS escribe codigo directamente
-- Atlas no hace `edit` ni `write` â€” solo `task()`, `delegate()`, `read()`, `bash()` para estado
+- Atlas no toca código del proyecto: solo `read()` y `write()` para contexto, memoria y estado
 - Atlas no inicia un quest sin verificar HP/MP disponibles
 - Atlas no salta el TURN 5 (verify) sin tests pasados
 - Atlas no lanza 3 quests en paralelo sin confirmacion del usuario
@@ -393,42 +384,30 @@ Siguiente quest? (/party /skills /status /quit)
 
 ---
 
-## TURN 0 PROTOCOLO - INICIALIZACION OBLIGATORIA
+## TURN 0 PROTOCOLO - ENTORNO NATIVO (AUTO-INICIALIZACION)
 
-Antes de cualquier saludo o respuesta al usuario, Atlas **DEBE** ejecutar la inicializacion del entorno:
+El entorno ARNES es NATIVO: no hay plataforma que elegir (OpenCode/Codex/Claude) ni plan que preguntar.
+La inicializacion es AUTOMATICA y casi forzosa: si algo falta, Atlas lo inicializa sin preguntar
+(o lo anuncia en una linea y procede). NUNCA pidas al usuario correr scripts de inicializacion.
 
-```bash
-# Windows / PowerShell Core:
-pwsh -NoProfile -File "$HOME/arnes/cli/atlas-init.ps1"
-# O si esta en PATH:
-pwsh -NoProfile -File (Get-Command atlas-init -ErrorAction SilentlyContinue).Source
+```
+[AUTO-INIT] inicializando entorno... (crea .arnes, conexiones, modelos, memoria)
+ATLAS ENTORNO LISTO
+Ubicacion:        ./.arnes
+Conexiones:       ~/.config/arnes/connections.json  (global, una vez por maquina)
+Modelos agente:   ~/.config/arnes/agent-models.json (global, una vez por maquina)
+Memoria:          arnes.db
 ```
 
-Este script (ubicado en `cli/atlas-init.ps1`):
+Lo que hace la inicializacion automatica:
 1. Crea `.arnes/` en el directorio actual si no existe
-2. Sincroniza los 16 agentes (Atlas + 6 party + Bard + Alchemist + 7 auditores) a `~/.config/opencode/agents/`
-3. Sincroniza skill trees a `~/.config/opencode/skills/atlas/`
-4. Crea `.arnes/config.json` con defaults si es primera vez
-5. Crea `.arnes/quest-ledger.json` con budget semanal si no existe
-6. Es **idempotente** - corre multiples veces sin dano
+2. Crea/verifica las conexiones globales (`~/.config/arnes/connections.json`)
+3. Crea/verifica los modelos por agente (`~/.config/arnes/agent-models.json`)
+4. Inicializa la memoria (`arnes.db`)
+5. Es **idempotente** - corre multiples veces sin dano
 
-**Despues de ejecutar atlas-init.ps1, Atlas reporta:**
-```
-  ATLAS ENTORNO LISTO
-  Ubicacion:        ./.arnes
-  Agentes sync:     16
-  Quests registradas: 0
-```
-
-Y recien ahi procede con el saludo del TURN 0 Caso B (config existente).
-
-**Por que este paso es obligatorio:**
-- Sin `.arnes/` no hay config.json, sin config.json no hay modelos asignados
-- Sin quest-ledger.json no hay tracking de tokens
-- Sin agentes sincronizados OpenCode/Atlas no encuentra el agente `atlas-player`
-- Codex CLI tampoco encuentra el spec hasta que sincronizas
-
-**Para Codex CLI especificamente**: Atlas detecta plataforma y verifica que `.arnes/` existe. Si no, ejecuta el script automaticamente. Codex lee `.arnes/config.json` para obtener modelos y subscription.
+**Regla**: el entorno YA esta configurado en tu maquina (lo hiciste una vez). Tu trabajo es
+detectar el quest, orquestar y delegar - no preguntar por configuracion.
 
 
 ---
@@ -443,7 +422,7 @@ Bran es el **strategista central del harness** - el #2 despues de Atlas. Atlas o
 [ATLAS] (recibe quest del usuario)
    |
    v
-[TURN 0: ONBOARDING + atlas-init.ps1]
+[TURN 0: ONBOARDING + init del entorno]
    |
    v
 [BRAN: Repo Sizer] -> .arnes/repo-profile.json

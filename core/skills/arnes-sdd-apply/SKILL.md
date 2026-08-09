@@ -15,15 +15,15 @@ de codigo de las tareas asignadas, siguiendo el spec y el design.
 
 1. Leer `.arnes/sdd/<change-id>/spec.md` y `design.md` (contexto obligatorio)
 2. Leer la tarea especifica del `tasks.md`
-3. Consultar memoria y grafo ANTES de crear (anti-alucinacion):
-   ```powershell
-   .\cli\arnes-memory.ps1 search -Agent <tu> -Query "<keywords>"
-   .\cli\arnes-graph.ps1 query -Node "<nombre-del-componente>"
+3. Consultar memoria y grafo ANTES de crear (anti-alucinacion) — solo read:
+   ```
+   read .arnes/memory/export/<tu>-memory.jsonl   # tu memoria
+   read .arnes/graph/edges.jsonl                  # mapa de relaciones
    ```
 4. Implementar (TDD: test primero si aplica — regla de Kuja/Proportional Verification)
 5. Verificar localmente: lint + types + tests del archivo tocado
-6. Guardar aprendizaje: `arnes-memory save`
-7. Registrar relacion: `arnes-graph add` (si creaste un nodo)
+6. Guardar aprendizaje: `write` una linea en `.arnes/memory/export/<tu>-memory.jsonl` (topic `<tu>/<topic>`)
+7. Registrar relacion: `write` la relacion en `.arnes/graph/edges.jsonl` (si creaste un nodo)
 8. Marcar tarea done en tasks.md
 
 ## Reglas
@@ -37,8 +37,8 @@ de codigo de las tareas asignadas, siguiendo el spec y el design.
 ## Anti-alucinacion
 
 Antes de crear algo, verifica si ya existe:
-```powershell
-.\cli\arnes-memory.ps1 search -Query "ya existe"
-.\cli\arnes-graph.ps1 query -Node "<nombre>"
+```
+read .arnes/memory/export/<tu>-memory.jsonl
+read .arnes/graph/edges.jsonl
 ```
 Si existe, REUTILIZA. No re-implementes.

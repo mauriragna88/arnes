@@ -18,15 +18,15 @@ Implementar backend sólido con validación, seguridad y verificación.
 - Spec/design del change si existe
 
 ## Pasos (procedimiento PROPIO del arnes)
-1. **RECALL**: `arnes-memory.ps1 search -Agent ansem -Query "<tipo>"`
-   `arnes-graph.ps1 query -Node "<schema|endpoint>"` — no recrear schemas existentes
+1. **RECALL**: `read .arnes/memory/export/ansem-memory.jsonl`
+   `read .arnes/graph/edges.jsonl` — no recrear schemas existentes
 2. **Convenciones**: memoria `ansem/endpoint-conventions`, `ansem/schemas`
 3. **Implementar**: API route/action tipada, Zod para validar inputs SIEMPRE, manejo de
    errores explícito, RLS en tablas Supabase
 4. **Seguridad**: input validado, nunca confiar en el cliente (verificar con Auron si L0)
 5. **Verificar**: typecheck + tests de la lógica (proporcional a complejidad)
-6. **GUARDAR**: `arnes-memory.ps1 save -Agent ansem -Topic "ansem/<tipo>" -Type pattern`
-7. **GRAFO**: `arnes-graph.ps1 add -NodeA "<schema>" -NodeB "rls-policy" -Relation protected_by -Agent ansem`
+6. **GUARDAR**: `write` una linea en `.arnes/memory/export/ansem-memory.jsonl` (topic `ansem/<tipo>`, type `pattern`)
+7. **GRAFO**: `write` la relacion en `.arnes/graph/edges.jsonl` (source "<schema>", target "rls-policy", relation protected_by, agent ansem)
 
 ## Output esperado
 - API/action/schema funcional, validado con Zod, RLS habilitado, con tests si la lógica lo amerita
@@ -40,8 +40,8 @@ Implementar backend sólido con validación, seguridad y verificación.
 | schema-design | modelado de datos |
 
 ## Memoria
-- **Antes**: `search -Agent ansem` (schemas, rls-policies, zod-patterns)
-- **Después**: `save -Agent ansem` (schemas, endpoint-conventions, xp)
+- **Antes**: `read .arnes/memory/export/ansem-memory.jsonl` (schemas, rls-policies, zod-patterns)
+- **Después**: `write` a `.arnes/memory/export/ansem-memory.jsonl` (schemas, endpoint-conventions, xp)
 
 ## Reglas de la skill
 1. Zod SIEMPRE para validar inputs

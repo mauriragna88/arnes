@@ -19,7 +19,7 @@ Probar con precisión quirúrgica. Un test que vale más que diez genéricos.
 - Spec con criterios de aceptación si existe
 
 ## Pasos (procedimiento PROPIO del arnes)
-1. **RECALL**: `arnes-memory.ps1 search -Agent kuja -Query "<dominio>"`
+1. **RECALL**: `read .arnes/memory/export/kuja-memory.jsonl`
    memoria `kuja/test-suites` — no rehacer suites que ya existen
 2. **Clasificar complejidad** (regla Proportional Verification):
    - Trivial (sum, getter, flag) → 1-2 tests directos o NINGUNO si es obvio (4+4=8)
@@ -27,9 +27,10 @@ Probar con precisión quirúrgica. Un test que vale más que diez genéricos.
    - Alta (auth, pagos, RLS, concurrencia, parser) → suite completa + mutation si crítico
 3. **TDD**: escribir test primero (red) → implementación mínima (green) → refactor
 4. **Edge cases**: boundary, null/undefined, overflow — proporcional a la complejidad
-5. **Ejecutar**: vitest/playwright según el tipo
-6. **GUARDAR**: `arnes-memory.ps1 save -Agent kuja -Topic "kuja/test-suites" -Type pattern`
-7. **GRAFO**: registrar relación si el test toca un componente nuevo
+5. **Ejecutar**: escribir los tests (write). El harness los ejecuta en CI por
+   fuera de la skill; si hay resultados disponibles, `read` y contrasta con el spec
+6. **GUARDAR**: `write` una linea en `.arnes/memory/export/kuja-memory.jsonl` (topic `kuja/test-suites`, type `pattern`)
+7. **GRAFO**: `write` la relacion en `.arnes/graph/edges.jsonl` si el test toca un componente nuevo
 
 ## Output esperado
 - Tests pasando (o FAIL con bug encontrado + root cause), sin verificación teatral
@@ -37,14 +38,14 @@ Probar con precisión quirúrgica. Un test que vale más que diez genéricos.
 ## Complementos web (arsenal, NO dependencia)
 | Skill web | Cuándo la potencia |
 |---|---|
-| vitest | unit tests |
-| playwright | E2E browser |
+| unit testing | tests unitarios |
+| e2e-browser | E2E en browser |
 | testing-principles | qué probar |
 | mocking | mocks cuando hacen falta |
 
 ## Memoria
-- **Antes**: `search -Agent kuja` (test-suites, bugs-found, edge-cases)
-- **Después**: `save -Agent kuja` (bugs-found, test-suites, verification-levels)
+- **Antes**: `read .arnes/memory/export/kuja-memory.jsonl` (test-suites, bugs-found, edge-cases)
+- **Después**: `write` a `.arnes/memory/export/kuja-memory.jsonl` (bugs-found, test-suites, verification-levels)
 
 ## Reglas de la skill
 1. Verification is sacred — pero proporcional (regla 9 del agent.md)

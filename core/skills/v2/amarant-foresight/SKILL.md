@@ -19,14 +19,14 @@ Ver el futuro del proyecto: planificar arquitectura antes de que se escriba cód
 - Estado actual del proyecto (memoria + grafo)
 
 ## Pasos (procedimiento PROPIO del arnes)
-1. **RECALL**: `arnes-memory.ps1 search -Agent amarant -Query "<dominio>"`
-   `arnes-graph.ps1 stats` — ver el mapa actual del proyecto
+1. **RECALL**: `read .arnes/memory/export/amarant-memory.jsonl`
+   `read .arnes/graph/edges.jsonl` — ver el mapa actual del proyecto
 2. **Foresight (plan)**: usar arnes-sdd-propose/spec/design para documentar el plan
 3. **Decisiones**: cada decisión de arquitectura con alternativas + razón (ADR)
 4. **Estructura**: definir árbol de archivos, flujo de datos, interfaces
 5. **Verificar viabilidad**: consultar grafo si ya existe algo relacionado
-6. **GUARDAR**: `arnes-memory.ps1 save -Agent amarant -Topic "amarant/arch-decisions" -Type decision`
-7. **ADR**: registrar en .arnes/adr/ (FASE 5)
+6. **GUARDAR**: `write` una linea en `.arnes/memory/export/amarant-memory.jsonl` (topic `amarant/arch-decisions`, type `decision`)
+7. **ADR**: `write` el ADR en `.arnes/adr/ADR-<NNN>-<slug>.md` (FASE 5)
 
 ## Output esperado
 - Plan/design documentado (proposal, spec, design, tasks) con decisiones razonadas
@@ -39,8 +39,8 @@ Ver el futuro del proyecto: planificar arquitectura antes de que se escriba cód
 | sdd-* (nuestras) | el ciclo SDD propio |
 
 ## Memoria
-- **Antes**: `search -Agent amarant` (arch-decisions, failed-plans, specs-created)
-- **Después**: `save -Agent amarant` (arch-decisions, xp)
+- **Antes**: `read .arnes/memory/export/amarant-memory.jsonl` (arch-decisions, failed-plans, specs-created)
+- **Después**: `write` a `.arnes/memory/export/amarant-memory.jsonl` (arch-decisions, xp)
 
 ## Reglas de la skill
 1. Decidir con evidencia, no por moda

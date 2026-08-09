@@ -28,13 +28,13 @@ para un cambio grande), el FDD planifica y ejecuta incrementalmente.
 1. **Feature = valor entregable** — si no se ve el valor al terminar, no es una feature
 2. **Independencia** — cada feature se puede hacer sin esperar a todo el set
 3. **Tamaños** — S (<1 quest), M (1-2), L (3+ → subdividir en M)
-4. **Memoria**: consulta arnes-graph y arnes-memory — no duplicar features ya hechas
-5. **Guardar**: `arnes-memory save -Agent atlas -Topic atlas/quest-history`
+4. **Memoria**: lee `read .arnes/graph/edges.jsonl` y `read .arnes/memory/export/*.jsonl` — no duplicar features ya hechas
+5. **Guardar**: `write` una linea en `.arnes/memory/export/atlas-memory.jsonl` (topic `atlas/quest-history`, type `action`)
 6. **Conectar a SDD**: si una feature es compleja, usar arnes-sdd para su spec/design
 
-## Comando de referencia
+## Referencia de archivos
 
-```powershell
-Get-Content .arnes/fdd/templates/feature-list.md
-Get-Content .arnes/fdd/templates/feature-plan.md
+```
+read .arnes/fdd/templates/feature-list.md
+read .arnes/fdd/templates/feature-plan.md
 ```

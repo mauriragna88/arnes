@@ -37,20 +37,21 @@ Esta skill define los topic_keys por agente y el flujo de guardado/consulta.
 
 ```
 Despues de completar tu accion en el turn, guardas a tu memoria:
-  .\cli\arnes-memory.ps1 save -Agent <tu_nombre> -Topic <tu>/<topic> -Type <tipo> -Content "<leccion>"
+  read .arnes/memory/export/<tu_nombre>-memory.jsonl
+  write .arnes/memory/export/<tu_nombre>-memory.jsonl
+    (contenido previo + 1 linea: {"agent":"<tu_nombre>","topic_key":"<tu>/<topic>","type":"<tipo>","content":"<leccion>"})
 ```
 
 Ejemplo real (Vivi termina un componente):
-```powershell
-.\cli\arnes-memory.ps1 save -Agent vivi -Topic "vivi/components-built" -Type pattern -Content "Navbar.tsx con container queries - reutilizable"
+```json
+{"agent":"vivi","topic_key":"vivi/components-built","type":"pattern","content":"Navbar.tsx con container queries - reutilizable"}
 ```
 
 ## Flujo de consulta (obligatorio ANTES de actuar)
 
 ```
 Antes de crear algo, busca si ya existe en tu memoria:
-  .\cli\arnes-memory.ps1 search -Agent <tu_nombre> -Query "<keywords del trabajo>"
-  .\cli\arnes-memory.ps1 agent -Agent <tu_nombre>
+  read .arnes/memory/export/<tu_nombre>-memory.jsonl
 ```
 
 Si encuentras un hecho (componente existente, patrón, bug recurrente):

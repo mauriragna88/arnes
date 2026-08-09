@@ -19,15 +19,15 @@ La memoria histórica del arnes: recomendar la mejor ruta basada en lo que funci
 - Historial de quests (arnes.db) + trust scores + blackboard
 
 ## Pasos (procedimiento PROPIO del arnes)
-1. **RECALL**: buscar en todo el historial
-   `arnes-memory.ps1 search -Query "<dominio del quest>"` — quests similares
-   `arnes-memory.ps1 quests` — historial de resultados
-   `arnes-graph.ps1 stats` — qué agentes tocaron qué
+1. **RECALL**: leer todo el historial (solo read)
+   `read .arnes/memory/export/*.jsonl` — quests similares y resultados
+   `read .arnes/graph/edges.jsonl` — qué agentes tocaron qué
+   `read .arnes/sam-digest.json` — puente inter-quest
 2. **Comparar**: este quest vs historial similar (qué party funcionó, qué falló)
 3. **Evaluar trust scores**: memoria de cada agente (success rate, fails)
 4. **Recomendar**: ruta + party + riesgo (con POR QUÉ, basado en datos históricos)
-5. **GUARDAR**: `arnes-memory.ps1 save -Agent sam -Topic "sam/recommendations" -Type recommendation`
-6. **Digest**: actualizar sam-digest.json para Atlas (TURN 0.5 de la próxima quest)
+5. **GUARDAR**: `write` una linea en `.arnes/memory/export/sam-memory.jsonl` (topic `sam/recommendations`, type `recommendation`)
+6. **Digest**: `write` `.arnes/sam-digest.json` actualizado para Atlas (TURN 0.5 de la próxima quest)
 
 ## Output esperado
 - Recomendación con memoria histórica: ruta, party, riesgo, y el POR QUÉ
@@ -38,8 +38,8 @@ La memoria histórica del arnes: recomendar la mejor ruta basada en lo que funci
 | (ninguna obligatoria) | Sam es puramente interno |
 
 ## Memoria
-- **Antes**: `search -Agent sam` (analyses, recommendations, trust-scores)
-- **Después**: `save -Agent sam` (recommendations, counsel-major, xp)
+- **Antes**: `read .arnes/memory/export/sam-memory.jsonl` (analyses, recommendations, trust-scores)
+- **Después**: `write` a `.arnes/memory/export/sam-memory.jsonl` (recommendations, counsel-major, xp)
 
 ## Reglas de la skill
 1. Recomendar con MEMORIA, no con intuición — datos históricos

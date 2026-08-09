@@ -9,7 +9,7 @@ description: >
 ## Purpose
 
 Las skills v2 son el PROCEDIMIENTO propio del ARNES: cómo ejecuta cada agente su trabajo.
-NO dependen de gentle-ai. Las skills web instaladas (react, tailwind, playwright...) son
+NO dependen de herramientas externas. Las skills web instaladas (react, tailwind, testing...) son
 COMPLEMENTO DE PODER — potencian la ejecución, pero el procedimiento es nuestro.
 
 ## Estructura canónica de una skill v2
@@ -45,19 +45,21 @@ description: <trigger de activación>
 | <skill-web> | <cómo ayuda> |
 
 ## Memoria
-- **Antes**: buscar en arnes.db (anti-alucinación)
-- **Después**: guardar patrón/lección en arnes.db
+- **Antes**: `read` `.arnes/memory/export/<agente>-memory.jsonl` (anti-alucinación)
+- **Después**: `write` el archivo + 1 linea JSON nueva (patrón/lección)
 
 ## Reglas de la skill
 1. <regla 1>
 2. <regla 2>
+3. **SOLO read + write** — ninguna otra herramienta
 ```
 
 ## Reglas para crear skills v2
 
 1. **Procedimiento propio** — los pasos son del arnes, no copia de skills web
 2. **Trigger claro** — cuándo se dispara automáticamente
-3. **Memoria integrada** — antes (recall) y después (guardar)
-4. **Complementos web explícitos** — qué skills potencian la ejecución
-5. **Output verificable** — qué se entrega y cómo se comprueba
+3. **Memoria integrada** — antes (read de `.arnes/memory/export/<agente>-memory.jsonl`) y después (write)
+4. **Complementos web explícitos** — qué skills potencian la ejecución (arsenal, NO dependencia)
+5. **Output verificable** — qué se entrega y cómo se comprueba (con read/write)
 6. **Proporcionalidad** — no sobre-especificar; el mínimo que garantiza calidad
+7. **Solo read + write** — las skills v2 NO invocan otras herramientas

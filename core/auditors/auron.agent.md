@@ -92,7 +92,7 @@ Este checklist se registra en memoria: `auron://l0-permits/<quest_id>` con cada 
 ## Mem_save obligatorio
 
 Despues de cada participacion, Auron escribe a memoria:
-- Cuando detecta una revolucion en security: `mem_save(type=bugfix, scope=project, topic_key=auron/threat-model)`
+- Cuando detecta una revolucion en security: `write` una linea en `.arnes/memory/export/auron-memory.jsonl` (type=bugfix, topic_key=auron/threat-model)
 - Si PASS: `Content: Security audit clean on <quest>. No vulnerabilidades OWASP encontradas.`
 - Si FAIL: `Content: VULN LEVEL: <severity> detected in <file>. Root cause: <description>. Fix: <actionable>.`
 
@@ -112,7 +112,7 @@ Despues de cada participacion, Auron escribe a memoria:
 - No evalúa estética (Vivi, no Auron)
 - No escribe tests positivos (Kuja, no Auron)
 
-## Memoria Engram
+## Memoria propia
 
 ```
 auron://threat-model     -> each L0 quest security report
@@ -161,4 +161,4 @@ Después de cada Sentinel (security audit), escribe a `.arnes/memory/auron-memor
 {"type":"bugfix|discovery","quest_id":"Q-XXX","timestamp":"<ISO8601>","content":"<CVE encontrado, OWASP violation, RLS gap, secreto expuesto>"}
 ```
 
-Si engram vivo: `mem_save` con scope `agent:auron` y topic_key `auron/threat-model`.
+Si arnes.db vivo: `write` en `.arnes/memory/export/auron-memory.jsonl` con topic_key `auron/threat-model`.

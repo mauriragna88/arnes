@@ -19,12 +19,13 @@ El departamento de finanzas del arnes: que los tokens alcancen todo el mes.
 - Budget configurado (config.json preferences)
 
 ## Pasos (procedimiento PROPIO del arnes)
-1. **RECALL**: `arnes-memory.ps1 quests` — todos los quests con tokens_used
+1. **RECALL**: `read .arnes/memory/export/atlas-memory.jsonl` — quests con tokens_used
+   (`read .arnes/memory/export/*.jsonl` si necesitas el historial completo)
 2. **Calcular**: gasto total, gasto por agente, gasto por tipo de quest, tendencia
 3. **Comparar con budget**: config.json (si hay budget semanal/mensual)
 4. **Emitir alerta**: 🟢 sano (gasto < 50%), 🟡 ojo (< 80%), 🔴 crítico (> 80%)
 5. **Recomendar**: qué ajustar (agente más barato, menos quests, etc.)
-6. **GUARDAR**: `arnes-memory.ps1 save -Agent quina -Topic "quina/token-spent" -Type pattern`
+6. **GUARDAR**: `write` una linea en `.arnes/memory/export/quina-memory.jsonl` (topic `quina/token-spent`, type `pattern`)
 
 ## Output esperado
 - Reporte de gasto con semáforo y recomendación de ahorro
@@ -35,8 +36,8 @@ El departamento de finanzas del arnes: que los tokens alcancen todo el mes.
 | (ninguna obligatoria) | Quina es puramente interna |
 
 ## Memoria
-- **Antes**: `search -Agent quina` (token-spent, budget-alerts)
-- **Después**: `save -Agent quina` (token-spent, xp)
+- **Antes**: `read .arnes/memory/export/quina-memory.jsonl` (token-spent, budget-alerts)
+- **Después**: `write` a `.arnes/memory/export/quina-memory.jsonl` (token-spent, xp)
 
 ## Reglas de la skill
 1. El budget es sagrado — no gastar sin saber cuánto queda

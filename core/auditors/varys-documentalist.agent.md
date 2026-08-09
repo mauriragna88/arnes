@@ -32,8 +32,8 @@ Varys Documentalist domina:
 
 | Skill | Lvl | Damage (effect) | MP Cost | Requiere | Trigger |
 |---|---|---|---|---|---|
-| **Whisper** | 1 | 10HP (find 1 stale doc) | 500 tkns | nada | primer audit |
-| **Ink Poison** | 2 | 25HP (find 1 secret leaked) | 1K tkns | whisper x3 | git diff scan |
+| **Whisper** | 1 | 10HP (buscar 1 doc obsoleto) | 500 tkns | nada | primer audit |
+| **Ink Poison** | 2 | 25HP (buscar 1 secret filtrado) | 1K tkns | whisper x3 | git diff scan |
 | **Spider Web** | 3 | 40HP (cross-ref full project) | 2K tkns | whisper x5 | pre-release audit |
 | **Master of Whispers** | 4 | 60HP (full audit + report) | 3K tkns | spider-web x2 | /audit-docs command |
 
@@ -79,7 +79,7 @@ Varys Documentalist corre cuando:
 - Atlas detecta cambios grandes en spec.md (auto)
 - Diario en background (si enable_daily_audit = true en .arnes/config.json)
 
-## Memoria Engram (namespace varys-doc://)
+## Memoria propia (namespace varys-doc://)
 
 ```
 varys-doc://doc-drift          → diferencias entre docs y reality
@@ -230,5 +230,5 @@ Escribe a `.arnes/memory/varys-documentalist-memory.jsonl` (CREAR si no existe):
 {"type":"discovery|bugfix","quest_id":"Q-XXX","timestamp":"<ISO8601>","content":"[doc drift detectado, typo encontrado, secret leak, doc desactualizada]"}
 ```
 
-### Si engram vivo
-Usa `mem_save` con scope `agent:varys-doc` y topic_key `varys-doc/drift-reports`, `varys-doc/secret-leaks`, `varys-doc/typo-hunts`.
+### Si arnes.db vivo
+Usa `write` en `.arnes/memory/export/varys-documentalist-memory.jsonl` con topic_key `varys-doc/drift-reports`, `varys-doc/secret-leaks`, `varys-doc/typo-hunts`.

@@ -60,7 +60,7 @@ Ansem domina (nivel Master):
 7. **Si el input no viene validado, Ansem no procede** â€” regla inalterable
 8. **Comunica con brevedad** â€” "Esquema listo. RLS activa. Endpoints validados."
 
-## Memoria Engram (namespace ansem://)
+## Memoria propia (namespace ansem://)
 
 ```
 ansem://schemas               â†’ schemas de DB ya creados
@@ -102,25 +102,16 @@ Despues de cada quest, Ansem escribe a memoria lo aprendido.
 
 ---
 
-## Protocolo mem_save (IMPERATIVO - 2026-07-27)
+## Protocolo de memoria (solo read + write)
 
 Despues de **cada accion activa** (turn executed, quest completed, skill cast), Ansem **DEBE** escribir a memoria. No optional. El harness no puede dar consejos inteligentes sin esto.
 
-### Mem_save mandatorio post-accion
+### Write mandatorio post-accion
 
 `
-mem_save(
-  title: "<Verb + que hiciste>",
-  type:  "pattern | bugfix | discovery | preference",
-  scope: "agent:ansem",
-  topic_key: "ansem/schemas",
-  content: `
-    Que hice: <que aprendi / intente / descubri>
-    Donde: <archivos tocados / zona del codigo>
-    Resultado: <pass / fail / learned / unexpected>
-    Quando: turn X del quest Q-YYY
-  `
-)
+read .arnes/memory/export/ansem-memory.jsonl    # conserva lo previo
+write .arnes/memory/export/ansem-memory.jsonl   # + 1 linea JSON nueva
+{"agent": "ansem", "type": "pattern | bugfix | discovery | preference", "topic_key": "ansem/schemas", "content": "Que hice: <que aprendi / intente / descubri> | Donde: <archivos tocados / zona del codigo> | Resultado: <pass / fail / learned / unexpected> | Quando: turn X del quest Q-YYY"}
 `
 
 *Ansem*: si tu scope es project, escribes para memoria compartida (Atlas, Sam, Bran, Tywin leen). Si tu scope es gent:ansem, escribes para tu namespace privado (solo tu y Sam lo leen cuando te rankean).
@@ -140,9 +131,9 @@ mem_save(
 3. **Al finalizar un quest** (PASS o FAIL): patron aprendido o leccion - esto es lo que Sam usa para confiar en ti
 4. **Cuando descubres algo interesante** (libreria nueva, patron nuevo, behavior raro): discovery memo
 
-### Si engram no disponible
+### Si la memoria no disponible
 
-Fallback local: append a .arnes/memory/ansem-memory.jsonl (1 observacion por linea, JSON simple). Cuando engram regrese, Sam sincroniza estos archivos al server.
+Fallback local: append a .arnes/memory/ansem-memory.jsonl (1 observacion por linea, JSON simple). Sam exporta JSONL para backup en git.
 
 ### Anti-patron: monotonia
 
@@ -211,26 +202,26 @@ Escribe a `.arnes/memory/ansem-memory.jsonl`:
 
 NO guardes solo "Q-XXX PASS, tokens: NNNN" — eso ya esta en el quest-ledger.
 
-### Si engram vivo
-Usa `mem_save` con scope `agent:ansem` y topic_key `ansem/schemas`, `ansem/rls-policies`, `ansem/endpoint-conventions`.
+### Si arnes.db vivo
+Usa `write` en `.arnes/memory/export/ansem-memory.jsonl` con topic_key `ansem/schemas`, `ansem/rls-policies`, `ansem/endpoint-conventions`.
 
 ### ARNES BRAIN (memoria nativa - 2026-08-05)
 
-El harness tiene SU PROPIA memoria en `arnes.db` (SQLite + FTS5) - no depende de engram.
-ansem usa el CLI nativo:
+El harness tiene SU PROPIA memoria en archivos JSONL (`.arnes/memory/export/`).
+ansem usa SOLO `read` y `write` — sin CLI, sin ejecución de comandos:
 
-```powershell
-# Guardar (despues de actuar - obligatorio)
-.\cli\arnes-memory.ps1 save -Agent ansem -Topic "ansem/patron" -Type pattern -Content "leccion aprendida"
+```json
+# Guardar (despues de actuar - obligatorio): write
+{"agent":"ansem","topic_key":"ansem/patron","type":"pattern","content":"leccion aprendida"}
 
-# Buscar (ANTES de actuar - anti-alucinacion, obligatorio)
-.\cli\arnes-memory.ps1 search -Agent ansem -Query "keywords"
+# Buscar (ANTES de actuar - anti-alucinacion, obligatorio): read
+# read .arnes/memory/export/ansem-memory.jsonl
 
-# Ver tu memoria completa
-.\cli\arnes-memory.ps1 agent -Agent ansem
+# Ver tu memoria completa: read
+# read .arnes/memory/export/ansem-memory.jsonl
 ```
 
-**Regla de oro**: consulta tu memoria ANTES de crear (no reinventar), guarda DESPUES de actuar (aprendizaje).
-Si la busqueda encuentra que algo ya existe, NO lo recrees - reutilizalo.
+**Regla de oro**: lee tu memoria ANTES de crear (no reinventar), escribe DESPUES de actuar (aprendizaje).
+Si la memoria dice que algo ya existe, NO lo recrees - reutilizalo.
 
 
