@@ -1,4 +1,4 @@
-# ADR-001 — Memoria propia con SQLite + FTS5
+﻿# ADR-001 — Memoria propia con SQLite + FTS5
 
 > **Fecha**: 2026-08-05
 > **Autor**: Usuario + Atlas + Amarant
@@ -9,9 +9,9 @@
 ## Contexto
 
 El harness necesitaba memoria persistente para que los agentes no pierdan contexto entre
-sesiones y no alucinen. La opción obvia era usar engram (sistema externo de Go con SQLite),
+sesiones y no alucinen. La opción obvia era usar arnes.db (sistema externo de Go con SQLite),
 pero el usuario decidió que el arnes debe ser **100% independiente** — cero dependencia de
-sistemas externos (engram, gentle-ai, openspec).
+sistemas externos (arnes.db, ARNES, openspec).
 
 ## Decisión
 
@@ -23,7 +23,7 @@ Export JSONL para portabilidad/git.
 
 | Alternativa | Pros | Contras |
 |---|---|---|
-| Engram (SQLite externo) | Listo, con MCP | Dependencia externa, binario WDAC-bloqueado |
+| arnes.db (SQLite externo) | Listo, con MCP | Dependencia externa, binario WDAC-bloqueado |
 | Archivos JSONL puros | Portable, diffeable en git | Búsqueda lenta a escala, sin índices |
 | SQLite + FTS5 propio | Rápido, local, índices, cero deps | Binario (hay que exportar para git) — resuelto con JSONL |
 

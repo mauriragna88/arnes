@@ -1,4 +1,4 @@
-# Harness RPG "Atlas" — Especificaciones
+﻿# Harness RPG "Atlas" — Especificaciones
 
 ## Requirements
 
@@ -45,7 +45,7 @@ Cada clase tiene un skill tree con niveles. Las skills se mejoran con uso (XP) y
 - **S5.1** — Vivi (Mage) usa "Fireball" 5 veces → desbloquea "Inferno": mayor potencia, más elementos generados
 - **S5.2** — Eiko (Healer) usa "Mend" exitosamente → gana +5% healing power, desbloquea "Curaga" en niveles
 - **S5.3** — Skill Tree visible al inician: muestra todas las skills y sus requirements
-- **S5.4** — Skill hereda todas las skills de gentle-ai más skills RPG propias
+- **S5.4** — Skill hereda todas las skills del ecosistema más skills RPG propias
 
 ### R6. Tactics Engine (Economía de Combate)
 Sistema que determina cuántos miembros usar, en paralelo o secuencial, basado en cost/benefit.

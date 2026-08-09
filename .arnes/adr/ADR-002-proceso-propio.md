@@ -1,4 +1,4 @@
-# ADR-002 — Proceso de desarrollo propio (SDD + FDD + TDD, sin gentle-ai)
+﻿# ADR-002 — Proceso de desarrollo propio (SDD + FDD + TDD, con metodos propios)
 
 > **Fecha**: 2026-08-05
 > **Autor**: Usuario + Atlas + Amarant
@@ -8,9 +8,9 @@
 
 ## Contexto
 
-El arnes usaba skills sdd-* de gentle-ai (Agent Teams Lite) que dependen de engram como
+El arnes usaba skills sdd-* del ecosistema (Agent Teams Lite) que dependen de arnes.db como
 backend. El usuario decidió independencia total: proceso propio, archivos file-based,
-cero gentle-ai.
+cero ARNES.
 
 ## Decisión
 
@@ -24,7 +24,7 @@ Construir el proceso de desarrollo ARNES propio:
 
 | Alternativa | Pros | Contras |
 |---|---|---|
-| Skills sdd-* de gentle-ai | Ya instaladas, completas | Dependen de engram + gentle-ai |
+| Skills sdd-* del ecosistema | Ya instaladas, completas | Dependen de arnes.db + ARNES |
 | Proceso propio file-based | 100% nuestro, portable | Hay que construirlo y mantenerlo |
 
 ## Consecuencias

@@ -1,4 +1,4 @@
-# ADR-003 — Skills propias v2 + skills web como complemento
+﻿# ADR-003 — Skills propias v2 + skills web como complemento
 
 > **Fecha**: 2026-08-05
 > **Autor**: Usuario + Atlas
@@ -8,14 +8,14 @@
 
 ## Contexto
 
-El skill-registry original mapeaba las skills RPG a "Gentle-AI Origin". El usuario decidió
-cero dependencia de gentle-ai, pero también quiere que los agentes sean "unos cabrones" con
+El skill-registry original mapeaba las skills RPG a "origen externo". El usuario decidió
+cero dependencia del ecosistema, pero también quiere que los agentes sean "unos cabrones" con
 lo mejor de la comunidad.
 
 ## Decisión
 
 - **Skills PROPIAS v2** (`core/skills/v2/`): el PROCEDIMIENTO es nuestro — 16 skills de los
-  15 agentes con trigger, pasos propios, memoria integrada. Cero gentle-ai.
+  15 agentes con trigger, pasos propios, memoria integrada. Cero ARNES.
 - **Skills web** (react, tailwind, superpowers, ui-ux-pro-max, taste-skill...): se MANTIENEN
   como COMPLEMENTO DE PODER — potencian la ejecución, nunca son dependencia obligatoria.
 
@@ -32,7 +32,7 @@ lo mejor de la comunidad.
 **Positivas**:
 - Los agentes tienen procedimiento propio (identidad, proceso, memoria)
 - Y arsenal de la comunidad (react, tailwind, superpowers) para ejecutar mejor
-- Cero gentle-ai en el skill-registry
+- Cero ARNES en el skill-registry
 
 **Negativas / Riesgos**:
 - Las skills web instaladas siguen en el sistema (no son dependencia pero están)

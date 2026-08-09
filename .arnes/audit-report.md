@@ -1,4 +1,4 @@
-# Atlas Harness - Audit Report de Gaps
+﻿# Atlas Harness - Audit Report de Gaps
 
 **Fecha**: 2026-07-28
 **Alcance**: 15 agentes (6 party + 7 auditores + atlas-player + bard) + 9 skill trees + harness (loop-engine, model-router, quest-detector)
@@ -17,13 +17,13 @@
 | Bard | 1 | 1 | 0 | - |
 | Harness specs | 3 | 3 specs existen | 3 sin implementar | Alta |
 | Skill trees | 9 | 9 | 0 | - |
-| CLI scripts | 11 | 11 | 2 sin integrar (update-ledger, engram-helpers) | Alta |
+| CLI scripts | 11 | 11 | 1 sin integrar (update-ledger) | Alta |
 
 **Gaps principales**:
 1. **Quina** es el agente mas debil (45 lineas vs promedio 150). Sin mem_save protocol, sin /status formato, sin circuit breaker ref.
 2. **Los 6 party members no mencionan Varys explicitamente** en su seccion de hand-offs. Es implicito via atlas-player.
 3. **El harness real no esta implementado**: loop-engine, model-router, quest-detector, circuit-breaker existen como specs markdown pero no hay codigo que los ejecute.
-4. **update-ledger.ps1 y engram-helpers.ps1 no se invocan** automaticamente post-quest.
+4. **update-ledger.ps1 no se invoca** automaticamente post-quest.
 
 ---
 
@@ -38,7 +38,7 @@
 - [x] Skills externas importadas (5 referencias)
 - [x] Reglas inalterables (10 reglas)
 - [x] Exclusions + Exclusiones criticas
-- [x] Memoria engram (6 namespaces)
+- [x] Memoria propia (6 namespaces)
 - [x] Ejemplo de turno completo
 - [x] Protocolo mem_save (mandatorio)
 - [x] Anti-patron monotonia
@@ -58,7 +58,7 @@
 - [x] Skills tree (6 spells: Mend, Esuna, Cura, Protect, Shell, Mass Heal)
 - [x] Reglas de combate (10 reglas)
 - [x] Exclusions + Exclusiones criticas (L0, no force push)
-- [x] Memoria engram (5 namespaces)
+- [x] Memoria propia (5 namespaces)
 - [x] Ejemplo de turno
 - [x] Protocolo mem_save
 
@@ -79,7 +79,7 @@
 - [x] Skills externas importadas (3: supabase, stripe, trail of bits)
 - [x] Reglas inalterables (7 reglas)
 - [x] Exclusions
-- [x] Memoria engram (7 namespaces)
+- [x] Memoria propia (7 namespaces)
 - [x] Ejemplo de turno
 - [x] Protocolo mem_save
 
@@ -99,7 +99,7 @@
 - [x] Skills externas importadas (5 referencias)
 - [x] Reglas inalterables (8 reglas)
 - [x] Exclusions
-- [x] Memoria engram (6 namespaces)
+- [x] Memoria propia (6 namespaces)
 - [x] Ejemplo de turno
 - [x] Protocolo mem_save
 
@@ -119,7 +119,7 @@
 - [x] Skills externas (obra/superpowers 258K, karpathy, mattpocock grill-me)
 - [x] Reglas inalterables (8 reglas)
 - [x] Exclusions
-- [x] Memoria engram (6 namespaces)
+- [x] Memoria propia (6 namespaces)
 - [x] Ejemplo de turno
 - [x] Protocolo mem_save
 
@@ -139,7 +139,7 @@
 - [x] Skills externas (Firecrawl siempre activa + 4 mas)
 - [x] Reglas inalterables (6 reglas)
 - [x] Exclusions
-- [x] Memoria engram (6 namespaces)
+- [x] Memoria propia (6 namespaces)
 - [x] Ejemplo de turno
 - [x] Protocolo mem_save
 
@@ -161,7 +161,7 @@
 - [x] Skill tree (6 skills)
 - [x] Reglas (7 reglas inmutables)
 - [x] Exclusions
-- [x] Memoria engram (7 namespaces)
+- [x] Memoria propia (7 namespaces)
 - [x] Ejemplo de turno completo (con multiparty)
 - [x] Protocolo mem_save
 
@@ -178,7 +178,7 @@
 - [x] Identidad + stats + personalidad (severe, directo, sin compasion)
 - [x] Reglas (8 reglas)
 - [x] Skill tree (3 skills: Inquisition, Cross-Check, Lannister's Verdict)
-- [x] Memoria engram (4 namespaces)
+- [x] Memoria propia (4 namespaces)
 - [x] Ejemplo de turno
 - [x] Protocolo mem_save
 
@@ -204,7 +204,7 @@
 - [x] Trust score per agent (con ejemplo)
 - [x] Anti-repetition mandatory
 - [x] Skills tree (8 skills)
-- [x] Memoria engram (7 namespaces)
+- [x] Memoria propia (7 namespaces)
 - [x] Output protocol (consejo menor, mayor, trust scores)
 - [x] Exclusiones
 - [x] Connection con Bran (diferenciador practico)
@@ -212,7 +212,7 @@
 - [x] Protocolo mem_save
 
 **GAPS**:
-- MISSING: Fallback engram offline - Sam menciona `.arnes/memory/sam-*.jsonl` pero no los scripts que los leen/escriben.
+- MISSING: Fallback arnes.db offline - Sam menciona `.arnes/memory/sam-*.jsonl` pero no los scripts que los leen/escriben.
 - MISSING: Mem_save example roto (linea 369).
 
 **NOTA**: Sam es el segundo agente mas completo junto con Bran. Complejo pero solido.
@@ -230,7 +230,7 @@
 - [x] Flujo operativo (Trigger A: arranque, Trigger B: pre-quest, Trigger C: post-quest, Trigger D: /status)
 - [x] Output protocol (Allocate JSON, Streak report ASCII, Resource tactician JSON)
 - [x] Skills tree (7 skills)
-- [x] Memoria engram (5 namespaces)
+- [x] Memoria propia (5 namespaces)
 - [x] Reglas inmutables (8 reglas)
 - [x] Exclusiones
 - [x] Connection con Sam
@@ -256,7 +256,7 @@
 - [x] Mem_save obligatorio (con ejemplo concreto)
 - [x] Reglas adicionales (6 reglas)
 - [x] Exclusions
-- [x] Memoria engram (3 namespaces)
+- [x] Memoria propia (3 namespaces)
 
 **GAPS**:
 - MISSING: Skills externas importadas (otros auditores las tienen; Auron podria referenciar owasp, auth-patterns, encryption skills del registry).
@@ -299,7 +299,7 @@
 - [x] Skills tree (4 spells con lvl, dmg, mp_cost, trigger)
 - [x] Reglas (7 reglas)
 - [x] Triggers para auditoria periodica
-- [x] Memoria engram (7 namespaces)
+- [x] Memoria propia (7 namespaces)
 - [x] Output format YAML estructurado con ejemplo completo
 - [x] Exclusions
 - [x] Ejemplo de turno
@@ -382,7 +382,7 @@
 - EXISTE pero no se invoca automaticamente post-quest.
 - Necesita hook desde atlas.ps1: `if quest_done { invoke update-ledger.ps1 }`.
 
-#### cli/engram-helpers.ps1 (7010 bytes)
+#### cli/arnes-memory.ps1 (7010 bytes)
 - EXISTE pero no se invoca desde los agentes automaticamente.
 - El mem_save mandatorio descrito en los 15 agentes es texto; no hay codigo que ejecute `mem_save`.
 
@@ -430,7 +430,7 @@ Algunos archivos tienen caracteres UTF-8 mal decodificados: `â€"` deberia ser
 11. Implementar model router real (script que lea config + asigne modelo al spawn)
 12. Implementar circuit breaker enforcement (contador persistente + bloqueo)
 13. Integrar update-ledger.ps1 al loop engine (auto-update post-quest)
-14. Integrar engram-helpers.ps1 al mem_save (auto-save post-turn)
+14. Integrar arnes-memory.ps1 al guardado automatico post-turn
 15. Integrar repo-profile.ps1 al streak report de Bran (re-run cada 20 quests)
 
 ---

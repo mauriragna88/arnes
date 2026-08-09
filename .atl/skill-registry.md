@@ -1,8 +1,8 @@
-# Skill Registry — Harness RPG Atlas (v2 - 2026-08-05)
+﻿# Skill Registry — Harness RPG Atlas (v2 - 2026-08-05)
 
 ## Registry Structure
 Este archivo mapea las skills de cada clase RPG a las **skills PROPIAS del arnes (v2)**.
-CERO referencia a gentle-ai. Las skills web instaladas (react, tailwind, superpowers...)
+CERO referencia a ARNES. Las skills web instaladas (react, tailwind, superpowers...)
 son **complemento de poder** — potencian la ejecución, nunca son dependencia obligatoria.
 
 ## Class Skill Mapping (v2 — skills PROPIAS)

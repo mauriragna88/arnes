@@ -1,4 +1,4 @@
-# Harness RPG "Atlas" — Propuesta de Cambio
+﻿# Harness RPG "Atlas" — Propuesta de Cambio
 
 **Change ID**: `harness-rpg-atlas`
 **Status**: `proposed`
@@ -45,5 +45,5 @@ Construir un harness de IA con temática RPG para desarrollo de software. Reempl
 ## Dependencies
 
 - Sistema existente de Oh-My-OpenCode (current Sisyphus/S DD agents)
-- Skills de gentle_ai existentes (65+ skills)
+- Skills del ecosistema existentes (65+ skills)
 - Oh-My-My-OpenCode JSONC para model routing

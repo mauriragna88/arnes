@@ -3,7 +3,7 @@
     "created_at": "2026-07-28T12:00:00-06:00",
     "updated_at": "2026-08-05T00:00:00-06:00",
     "title": "Plan ARNES v2 - Ecosistema 100% propio",
-    "principle": "El harness hace el trabajo pesado; el modelo de IA es intercambiable. CERO dependencia de gentle-ai/engram. Memoria cerebral propia (SQLite+FTS5), Knowledge Graph, SDD/FDD/ADR propios.",
+    "principle": "El harness hace el trabajo pesado; el modelo de IA es intercambiable. CERO dependencia del ecosistema/arnes.db. Memoria cerebral propia (SQLite+FTS5), Knowledge Graph, SDD/FDD/ADR propios.",
     "master_plan": "docs/PLAN-ARNES.md (FUENTE DE VERDAD para continuidad entre sesiones)",
     "current_state": {
         "quests_completed": 41,
@@ -47,23 +47,23 @@
         },
         {
             "id": 3,
-            "name": "ARNES SDD - sin gentle-ai",
+            "name": "ARNES SDD - con metodos propios",
             "status": "done",
             "description": "Skills propias file-based: arnes-sdd-propose/spec/design/tasks/apply/verify/archive. Carpeta .arnes/sdd/ con templates. Change de ejemplo C-20260805-01. Ciclo probado con quest Q-002.",
             "completed_at": "2026-08-05",
             "acceptance_criteria": [
-                "Ciclo SDD completo corre sin gentle-ai - HECHO",
+                "Ciclo SDD completo corre con metodos propios - HECHO",
                 ".arnes/sdd/ guarda proposal->spec->design->tasks - HECHO",
-                "skills sdd-* de gentle-ai reemplazadas en opencode.json - PARCIAL (skills propias creadas; remover las ajenas en limpieza FASE 6)"
+                "skills sdd-* del ecosistema reemplazadas en opencode.json - PARCIAL (skills propias creadas; remover las ajenas en limpieza FASE 6)"
             ]
         },
         {
             "id": 3.5,
             "name": "ARNES SKILLS v2 - 100% propias (DECISION USUARIO 2026-08-05)",
             "status": "pending",
-            "description": "Skills de los 13 agentes 100% propias, sin gentle-ai EN NADA. Las skills de internet (superpowers, ui-ux-pro-max, taste-skill) SE MANTIENEN como COMPLEMENTO DE PODER / arsenal (nunca dependencia obligatoria): el procedimiento es nuestro, las skills web potencian la ejecucion. Crear skills v2 en core/skills/ renovadas: trigger, inputs, pasos, output, conexion a arnes.db. Actualizar .atl/skill-registry.md (quitar 'Gentle-AI Origin', mapear complementos web).",
+            "description": "Skills de los 13 agentes 100% propias, sin dependencias externas EN NADA. Las skills de internet (superpowers, ui-ux-pro-max, taste-skill) SE MANTIENEN como COMPLEMENTO DE PODER / arsenal (nunca dependencia obligatoria): el procedimiento es nuestro, las skills web potencian la ejecucion. Crear skills v2 en core/skills/ renovadas: trigger, inputs, pasos, output, conexion a arnes.db. Actualizar .atl/skill-registry.md (quitar 'origen externo', mapear complementos web).",
             "acceptance_criteria": [
-                "skill-registry.md sin referencias 'Gentle-AI Origin'",
+                "skill-registry.md sin referencias 'origen externo'",
                 "Los 13 agentes tienen skill propia v2 (vivi-fireball, ansem-smite, kuja-backstab, etc.)",
                 "Un quest de frontend se resuelve 100% con skills propias",
                 "Cada skill conecta a memoria (arnes.db): guarda patron/leccion al usarse"
@@ -153,7 +153,7 @@
         }
     ],
     "rules": [
-        "NO depender de gentle-ai, engram, openspec ni arneses externos. Solo Python + SQLite + PowerShell + Node + Git (preinstalados).",
+        "NO depender del ecosistema, arnes.db, openspec ni arneses externos. Solo Python + SQLite + PowerShell + Node + Git (preinstalados).",
         "Al terminar cada sesion, actualizar docs/PLAN-ARNES.md (fases, gotchas, estado).",
         "BOM UTF-8 obligatorio en scripts PS con Unicode (atlas-init.ps1).",
         "El harness verifica (memoria + tests + grafos); el modelo ejecuta. Anti-alucinacion por diseno.",
