@@ -293,21 +293,15 @@ function Quest-Done($state, $questId, $verdict, $agent, $tokens, $evidencePath, 
         }
     }
 
-    # Engram memory: save quest outcome
+    # Memoria propia: guardar resultado del quest en arnes.db
     try {
-        $engramScript = Join-Path $PSScriptRoot "engram-helpers.ps1"
-        if (Test-Path $engramScript) {
-            . $engramScript
-            if (Test-EngramAlive) {
-                $title = "Quest $questId $verdict ($agent, $tokens tokens)"
-                $content = "Quest $questId verdict: $verdict. Agent: $agent. Tokens: $tokens. Quest: $($state.current_quest). Evidence: $evidencePath. Audit verdict: $verdictPath. Remediation: $remediationPath. Sam counsel: $counselPath. Atlas decision: $decisionPath"
-                $scope = if ($agent) { "agent:$agent" } else { "project" }
-                $type = if ($verdict -eq "PASS") { "pattern" } else { "bugfix" }
-                $null = Save-Memory -Title $title -Content $content -Type $type -Scope $scope -TopicKey "atlas/quest-outcomes/$questId"
-            } else {
-                # Fallback: append to .arnes/memory/<agent>-memory.jsonl
-                Append-MemoryFallback -Agent $agent -Title "Quest $questId $verdict" -Content "Tokens: $tokens. Verdict: $verdict" -Type $type
-            }
+        $memScript = Join-Path $PSScriptRoot "arnes-memory.ps1"
+        if (Test-Path $memScript) {
+            $title = "Quest $questId $verdict ($agent, $tokens tokens)"
+            $content = "Quest $questId verdict: $verdict. Agent: $agent. Tokens: $tokens. Quest: $($state.current_quest). Evidence: $evidencePath. Audit verdict: $verdictPath. Remediation: $remediationPath. Sam counsel: $counselPath. Atlas decision: $decisionPath"
+            $memAgent = if ($agent) { $agent } else { 'atlas' }
+            $type = if ($verdict -eq "PASS") { "pattern" } else { "bugfix" }
+            & $memScript save -Agent $memAgent -Topic "atlas/quest-outcomes/$questId" -Type $type -Content $content 2>$null
         }
     } catch {}
 

@@ -137,35 +137,17 @@ function Record-Fail($agentName, $state) {
         $entry.blocked_until = $blockedUntil
         $entry.status = "blocked"
         Write-Host "  [BREAKER] $agentName blocked until $blockedUntil (cooldown $($state.cooldown_minutes) min)" -ForegroundColor Red
-        # Engram memory: log breach
-        Invoke-EngramMemSave -Agent $agentName -Title "Circuit Breaker BLOCKED $agentName" -Content "Agent blocked for $($state.cooldown_minutes)min after $($entry.fail_count) fails in window." -Type "bugfix" -TopicKey "circuit-breaker/breach"
+        # Memoria propia: registrar el bloqueo en arnes.db
+        try {
+            $memScript = Join-Path $PSScriptRoot "arnes-memory.ps1"
+            if (Test-Path $memScript) {
+                & $memScript save -Agent $agentName -Topic "circuit-breaker/breach" -Type "bugfix" -Content "Agent blocked for $($state.cooldown_minutes)min after $($entry.fail_count) fails in window." 2>$null
+            }
+        } catch {}
     } else {
         Write-Host "  [WARN] $agentName fail $($entry.fail_count)/$($state.threshold)" -ForegroundColor Yellow
     }
     return $state
-}
-
-function Invoke-EngramMemSave($agent, $title, $content, $type, $topicKey) {
-    try {
-        $engramScript = Join-Path $PSScriptRoot "engram-helpers.ps1"
-        if (Test-Path $engramScript) {
-            . $engramScript
-            if (Test-EngramAlive) {
-                $null = Save-Memory -Title $title -Content $content -Type $type -Scope "agent:$agent" -TopicKey $topicKey
-            } else {
-                $memDir = Join-Path $ArnesDir "memory"
-                if (-not (Test-Path $memDir)) { New-Item -ItemType Directory -Path $memDir -Force | Out-Null }
-                $file = Join-Path $memDir "$agent-memory.jsonl"
-                $entry = @{
-                    timestamp = (Get-Date).ToString("o")
-                    title = $title
-                    content = $content
-                    type = $type
-                }
-                $entry | ConvertTo-Json -Compress | Add-Content -LiteralPath $file -Encoding UTF8
-            }
-        }
-    } catch {}
 }
 
 function Record-Pass($agentName, $state) {

@@ -1,4 +1,4 @@
-# arnes activate - CLI Final Atlas Harness RPG
+﻿# arnes activate - CLI Final Atlas Harness RPG
 # =============================================
 # Uso: atlas (desde cualquier carpeta) o .\cli\activate.ps1
 # Detecta plataforma, sync agentes a OpenCode, lanza OpenCode con Atlas como primary
@@ -428,20 +428,18 @@ function EvenatanFallback {
     }
 }
 
-# === CARGAR ENGRAM HELPERS ===
-function Load-Engram {
-    $h = Join-Path $ROOT "cli\engram-helpers.ps1"
-    if (-not (Test-Path $h)) { return }
-    try {
-        . $h
-        if (Test-EngramAlive) {
-            OK "Engram server vivo - memoria persistente activa"
+# === VERIFICAR MEMORIA PROPIA (arnes.db, sin servidor externo) ===
+function Load-ArnesMemory {
+    $mem = Join-Path $ROOT "cli\arnes-memory.ps1"
+    if (Test-Path $mem) {
+        $db = Join-Path $ROOT ".arnes\arnes.db"
+        if (Test-Path $db) {
+            OK "Memoria propia activa (arnes.db)"
         } else {
-            Warn "Engram server no responde - memoria desactivada esta sesion"
-            Minor "    (activarlo con 'engram serve' si necesitas memoria)"
+            Minor "Memoria propia lista (arnes.db se crea al primer uso)"
         }
-    } catch {
-        Warn "No se pudo cargar engram-helpers.ps1: $($_.Exception.Message)"
+    } else {
+        Warn "No se encontro cli\arnes-memory.ps1"
     }
 }
 
@@ -455,7 +453,7 @@ OK ("Plataforma: $platform")
 
 SyncAgents
 SyncSkillTrees
-Load-Engram
+Load-ArnesMemory
 
 Run-Onboarding
 

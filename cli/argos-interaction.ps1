@@ -36,6 +36,12 @@ $PrefPath = Join-Path $ArnesDir 'preferences.json'
 # Forzar UTF-8
 try { [Console]::OutputEncoding = [System.Text.Encoding]::UTF8 } catch {}
 
+# Lectura segura (no interactivo: vacio en vez de crashear)
+function Read-Input {
+    param([string]$Prompt)
+    try { return Read-Host $Prompt } catch { return '' }
+}
+
 function Get-Preferences {
     $defaults = [ordered]@{
         version = '1.0'
@@ -118,7 +124,7 @@ function Show-PermissionsWizard {
     Write-Host '  [3] Lectura + escritura + bash (instalar, correr tests, git)' -ForegroundColor White
     Write-Host '  [Q] Cancelar' -ForegroundColor White
     Write-Host ''
-    $choice = Read-Host '  Elige nivel de permiso'
+    $choice = Read-Input '  Elige nivel de permiso'
     $prefs = Get-Preferences
     switch ($choice) {
         '1' { $prefs.auto.grant_read = $true; $prefs.auto.grant_write = $false; Write-Host '  [OK] Permiso: SOLO LECTURA' -ForegroundColor Green }
@@ -154,7 +160,7 @@ function Show-ModeWizard {
     Write-Host '                detalle solo si preguntas.' -ForegroundColor DarkGray
     Write-Host '                Ideal: balance entre velocidad y control.' -ForegroundColor DarkGray
     Write-Host ''
-    $choice = Read-Host '  Elige tu modo [1/2/3]'
+    $choice = Read-Input '  Elige tu modo [1/2/3]'
     $prefs = Get-Preferences
     switch ($choice) {
         '1' {

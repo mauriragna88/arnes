@@ -19,7 +19,7 @@ El cerebro del harness. Guarda, busca y exporta recuerdos de los agentes.
 [CmdletBinding()]
 param(
     [Parameter(Mandatory = $true, Position = 0)]
-    [ValidateSet('init', 'save', 'search', 'context', 'agent', 'export', 'import', 'stats', 'quest', 'quests', 'edge', 'edges')]
+    [ValidateSet('init', 'save', 'search', 'recall', 'context', 'agent', 'get', 'update', 'reinforce', 'verify', 'reconsolidate', 'suggest-topic', 'revisions', 'compact', 'consolidate', 'consolidate-recent', 'checkpoint', 'capsule', 'continuity', 'cognitive-compact', 'aquest', 'atask', 'backup', 'export', 'import', 'stats', 'quest', 'quests', 'edge', 'edges', 'skill', 'route', 'reviews')]
     [string]$Command,
 
     [string]$Agent,
@@ -30,15 +30,65 @@ param(
     [string]$Query,
     [string]$QuestId,
     [string]$Json,
+    [switch]$Quiet,   # salida JSON capturable (para que el chat cargue la memoria)
+    [switch]$Upsert,  # save: actualiza el topico si ya existe (en vez de duplicar)
+    [int]$Score = 0,  # save: importancia 1-5 (5 = critico, aparece primero)
+    [string[]]$Tags,  # save: etiquetas para filtrar (ej: -Tags schema,supabase)
+    [string]$Tag,     # search/recall: filtrar por etiqueta
+    [string]$Kind,    # save: working | episodic | semantic | procedural
+    [double]$Confidence = -1,   # save: 0-1 (default segun tipo)
+    [string]$Volatility = '',   # save: immutable | stable | slow | dynamic | ephemeral
+    [string]$Evidence,          # save/verify/reinforce: JSON de fuentes
+    [string]$Source,            # save: origen
+    [string]$Verdict,           # verify: PASS | FAIL
+    [int]$OlderThanDays = 30,  # compact: dias de antiguedad
+    [int]$Hours = 24,          # consolidate-recent: horas recientes
+    [int]$Id = 0,     # update/get/revisions/reinforce/verify/reconsolidate/capsule/continuity: id
+    [switch]$Create,  # checkpoint/aquest: crear
+    [switch]$List,    # checkpoint/aquest/atask: listar
+    [string]$Goal,            # checkpoint
+    [string]$Phase,           # checkpoint
+    [string[]]$Completed,     # checkpoint: tareas completadas
+    [string[]]$Pending,       # checkpoint: pendientes
+    [string[]]$Files,         # checkpoint: archivos activos
+    [string[]]$ModifiedFiles, # checkpoint: archivos modificados
+    [int[]]$Decisions,        # checkpoint: ids de memoria criticos
+    [string]$Skill,   # checkpoint: skill activa / skill: id
+    [string]$SkillAction = '', # skill: register | exec | link | status | executions
+    [string]$Stage,           # checkpoint: etapa de la skill
+    [string[]]$Blockers,      # checkpoint
+    [string[]]$Errors,        # checkpoint
+    [string]$TestState,       # checkpoint
+    [string]$BuildState,      # checkpoint
+    [string]$GitState,        # checkpoint
+    [string]$NextAction,      # checkpoint: SIGUIENTE ACCION EXACTA
+    [string]$Risk,    # route: texto de riesgo adicional
+    [string]$TaskId,  # atask: id de tarea (AUTH-03)
+    [string]$Status,  # atask: nuevo status
+    [int]$Attempts = 0,       # atask
+    [int]$TokensUsed = 0,     # atask
+    [string]$Summary,         # atask: resumen del resultado
+    [string[]]$TaskDeps,      # atask: dependencias
+    [string]$Acceptance,      # atask: criterios de aceptacion
     [int]$Limit = 20,
     [string]$OutDir,
-    [string]$InDir
+    [string]$InDir,
+    [switch]$Global  # Capa extra: memoria GLOBAL de patrones (~/.config/arnes/osma-global.db)
 )
 
 $ErrorActionPreference = 'Stop'
 $Root = Resolve-Path (Join-Path $PSScriptRoot '..')
-$ArnesDir = Join-Path $Root '.arnes'
+# Memoria POR PROYECTO: la DB vive en .arnes de la carpeta donde trabajas (no global)
+$ArnesDir = Join-Path (Get-Location) '.arnes'
 $DbPath = Join-Path $ArnesDir 'arnes.db'
+# Capa GLOBAL (opcional): ~/.config/arnes/osma-global.db
+# Guarda patrones/lecciones reutilizables que cualquier proyecto consulta.
+# No reemplaza la memoria local — la COMPLEMENTA.
+if ($Global) {
+    $GlobalArnesDir = Join-Path $env:USERPROFILE '.config\arnes'
+    if (-not (Test-Path $GlobalArnesDir)) { New-Item -ItemType Directory -Path $GlobalArnesDir -Force | Out-Null }
+    $DbPath = Join-Path $GlobalArnesDir 'osma-global.db'
+}
 $BrainScript = Join-Path $PSScriptRoot 'arnes_brain.py'
 
 # Verificar Python
@@ -66,16 +116,26 @@ function Get-KnownAgents {
             }
         } catch {}
     }
-    # Auditores + player
-    $extra = @(
+    # Los 16 agentes del party (fallback completo si no hay config con characters)
+    $allAgents = @(
         @{ id = 'atlas'; name = 'Atlas'; class = 'Player'; role = 'Orchestrator' },
+        @{ id = 'vivi'; name = 'Vivi'; class = 'Mage'; role = 'Frontend' },
+        @{ id = 'ansem'; name = 'Ansem'; class = 'Paladin'; role = 'Backend' },
+        @{ id = 'kuja'; name = 'Kuja'; class = 'Rogue'; role = 'QA' },
+        @{ id = 'eiko'; name = 'Eiko'; class = 'Cleric'; role = 'DevOps' },
+        @{ id = 'amarant'; name = 'Amarant'; class = 'Monk'; role = 'Architecture' },
+        @{ id = 'eremez'; name = 'Eremez'; class = 'Ranger'; role = 'Research' },
+        @{ id = 'auron'; name = 'Auron'; class = 'Warden'; role = 'Security' },
+        @{ id = 'bran'; name = 'Bran'; class = 'Seer'; role = 'Analyst' },
+        @{ id = 'quina'; name = 'Quina'; class = 'Banker'; role = 'Tokens' },
         @{ id = 'varys'; name = 'Varys'; class = 'Spider'; role = 'Tracker' },
-        @{ id = 'tywin'; name = 'Tywin'; class = 'Verifier'; role = 'Auditor' },
+        @{ id = 'tywin'; name = 'Tywin'; class = 'Verifier'; role = 'Verifier' },
         @{ id = 'sam'; name = 'Sam'; class = 'Archivist'; role = 'Counselor' },
+        @{ id = 'bard'; name = 'Bard'; class = 'Bard'; role = 'Improvement' },
         @{ id = 'tidus'; name = 'Tidus'; class = 'Warden'; role = 'Infrastructure' },
         @{ id = 'ragnarok'; name = 'Ragnarok'; class = 'Warden'; role = 'Procurement' }
     )
-    foreach ($e in $extra) {
+    foreach ($e in $allAgents) {
         if ($agents.id -notcontains $e.id) { $agents += $e }
     }
     return $agents
@@ -106,7 +166,7 @@ switch ($Command) {
             $out = Get-Content $tmp -Raw | & $python $BrainScript $DbPath init "-" 2>$null
             $stats = $out | Out-String | ConvertFrom-Json
             Write-Host ''
-            Write-Host '  ARNES BRAIN inicializado' -ForegroundColor Cyan
+            Write-Host '  OSMA inicializado' -ForegroundColor Cyan
             Write-Host ("  {0,-18} {1}" -f 'Agentes:', $stats.agents) -ForegroundColor White
             Write-Host ("  {0,-18} {1}" -f 'Observaciones:', $stats.observations) -ForegroundColor White
             Write-Host ("  {0,-18} {1}" -f 'Quests:', $stats.quests) -ForegroundColor White
@@ -123,21 +183,296 @@ switch ($Command) {
             type      = $Type
             content   = $Content
             quest_id  = $QuestId
+            score     = $Score
+            tags      = @($Tags)
+            memory_kind = $(if ($Kind) { $Kind } else { $null })
+            confidence  = $(if ($Confidence -ge 0) { $Confidence } else { $null })
+            volatility  = $(if ($Volatility) { $Volatility } else { $null })
+            evidence    = $(if ($Evidence) { $Evidence } else { $null })
+            source      = $(if ($Source) { $Source } else { $null })
         } | ConvertTo-Json -Compress
+        if ($Upsert) {
+            $data = @{
+                agent = $saveAgent; topic_key = $saveTopic; type = $Type
+                content = $Content; quest_id = $QuestId; score = $Score
+                tags = @($Tags); memory_kind = $(if ($Kind) { $Kind } else { $null })
+                confidence = $(if ($Confidence -ge 0) { $Confidence } else { $null })
+                volatility = $(if ($Volatility) { $Volatility } else { $null })
+                evidence = $(if ($Evidence) { $Evidence } else { $null })
+                source = $(if ($Source) { $Source } else { $null })
+                upsert = $true
+            } | ConvertTo-Json -Compress
+        }
         $tmp = Join-Path $env:TEMP ("arnes-save-" + [guid]::NewGuid().ToString('N') + ".json")
         Set-Content -Path $tmp -Value $data -Encoding UTF8
         try {
             $out = Get-Content $tmp -Raw | & $python $BrainScript $DbPath save "-" 2>$null
             $res = $out | Out-String | ConvertFrom-Json
+            if ($Quiet) { Write-Output ($res | ConvertTo-Json -Compress -Depth 3); exit 0 }
             Write-Host ("  [OK] Memoria guardada (id={0})" -f $res.id) -ForegroundColor Green
             Write-Host ("       {0} | {1}" -f $saveAgent, $saveTopic) -ForegroundColor DarkGray
         } finally { Remove-Item $tmp -Force -ErrorAction SilentlyContinue }
     }
+    'get' {
+        if ($Id -le 0) { throw 'Falta -Id' }
+        $out = & $python $BrainScript $DbPath get $Id 2>$null
+        $r = $out | Out-String | ConvertFrom-Json
+        if ($Quiet) { Write-Output ($r | ConvertTo-Json -Compress -Depth 4); exit 0 }
+        if ($r.error) { Write-Host ("  [!] " + $r.error) -ForegroundColor Yellow; exit 0 }
+        Write-Host ("  [{0}] {1} | {2}" -f $r.id, $r.agent, $r.topic_key) -ForegroundColor Yellow
+        Write-Host ("       {0}" -f $r.content) -ForegroundColor White
+        Write-Host ("       ({0} | {1})" -f $r.type, $r.created_at) -ForegroundColor DarkGray
+    }
+    'update' {
+        if ($Id -le 0) { throw 'Falta -Id (update -Id 5 -Content ...)' }
+        if (-not $Content -and -not $Topic) { throw 'Falta -Content o -Topic' }
+        $data = @{ id = $Id; content = $Content; topic_key = $Topic } | ConvertTo-Json -Compress
+        $tmp = Join-Path $env:TEMP ("arnes-update-" + [guid]::NewGuid().ToString('N') + ".json")
+        Set-Content -Path $tmp -Value $data -Encoding UTF8
+        try {
+            $out = Get-Content $tmp -Raw | & $python $BrainScript $DbPath update "-" 2>$null
+            $res = $out | Out-String | ConvertFrom-Json
+            if ($Quiet) { Write-Output ($res | ConvertTo-Json -Compress -Depth 3); exit 0 }
+            Write-Host ("  [OK] Observacion {0} actualizada" -f $res.id) -ForegroundColor Green
+        } finally { Remove-Item $tmp -Force -ErrorAction SilentlyContinue }
+    }
+    'recall' {
+        if (-not $Query) { throw 'Falta -Query' }
+        $agentArg = if ($Agent) { $Agent } else { '-' }
+        $tagArg = if ($Tag) { $Tag } else { '-' }
+        $out = & $python $BrainScript $DbPath recall $Query $agentArg $Limit $tagArg 2>$null
+        if ($Quiet) { Write-Output (($out | Out-String).Trim()); exit 0 }
+        $hits = $out | Out-String | ConvertFrom-Json
+        Write-Host ("  Recall: {0} recuerdos relevantes" -f $hits.Count) -ForegroundColor Cyan
+        foreach ($h in $hits) {
+            Write-Host ("  [{0}] {1} | conf={2} rs={3}" -f $h.id, $h.topic_key, $h.confidence, $h.effective_retrieval) -ForegroundColor Yellow
+            $short = $h.content
+            if ($short.Length -gt 90) { $short = $short.Substring(0, 90) + '...' }
+            Write-Host ("       {0}" -f $short) -ForegroundColor White
+        }
+    }
+    'reinforce' {
+        if ($Id -le 0) { throw 'Falta -Id' }
+        $data = @{ id = $Id; evidence = $Evidence; success = $true } | ConvertTo-Json -Compress
+        $tmp = Join-Path $env:TEMP ("arnes-reinf-" + [guid]::NewGuid().ToString('N') + ".json")
+        Set-Content -Path $tmp -Value $data -Encoding UTF8
+        try {
+            $out = Get-Content $tmp -Raw | & $python $BrainScript $DbPath reinforce "-" 2>$null
+            if (-not $Quiet) { Write-Host ("  [OK] Memoria {0} reforzada (storage/confianza subieron)" -f $Id) -ForegroundColor Green }
+        } finally { Remove-Item $tmp -Force -ErrorAction SilentlyContinue }
+    }
+    'verify' {
+        if ($Id -le 0) { throw 'Falta -Id' }
+        if (-not $Verdict) { $Verdict = 'PASS' }
+        $data = @{ id = $Id; verdict = $Verdict; evidence = $Evidence } | ConvertTo-Json -Compress
+        $tmp = Join-Path $env:TEMP ("arnes-verif-" + [guid]::NewGuid().ToString('N') + ".json")
+        Set-Content -Path $tmp -Value $data -Encoding UTF8
+        try {
+            $out = Get-Content $tmp -Raw | & $python $BrainScript $DbPath verify "-" 2>$null
+            if (-not $Quiet) { Write-Host ("  [OK] Memoria {0} verificada: {1}" -f $Id, $Verdict) -ForegroundColor $(if ($Verdict -eq 'PASS') { 'Green' } else { 'Yellow' }) }
+        } finally { Remove-Item $tmp -Force -ErrorAction SilentlyContinue }
+    }
+    'reconsolidate' {
+        if ($Id -le 0 -or -not $Content) { throw 'Falta -Id y -Content (reconsolidate -Id 8 -Content "...")' }
+        $data = @{ id = $Id; content = $Content; evidence = $Evidence } | ConvertTo-Json -Compress
+        $tmp = Join-Path $env:TEMP ("arnes-recon-" + [guid]::NewGuid().ToString('N') + ".json")
+        Set-Content -Path $tmp -Value $data -Encoding UTF8
+        try {
+            $out = Get-Content $tmp -Raw | & $python $BrainScript $DbPath reconsolidate "-" 2>$null
+            if (-not $Quiet) { Write-Host ("  [OK] Memoria {0} reconsolidada (revision guardada)" -f $Id) -ForegroundColor Green }
+        } finally { Remove-Item $tmp -Force -ErrorAction SilentlyContinue }
+    }
+    'skill' {
+        if (-not $SkillAction) { throw 'Falta -SkillAction (register | exec | link | status | executions)' }
+        if ($SkillAction -eq 'status') {
+            $out = & $python $BrainScript $DbPath skill status $(if ($Skill) { $Skill } else { '-' }) 2>$null
+            if ($Quiet) { Write-Output (($out | Out-String).Trim()); exit 0 }
+            $rows = $out | Out-String | ConvertFrom-Json
+            if (-not $rows) { Write-Host '  Sin skills registradas.' -ForegroundColor DarkGray; exit 0 }
+            foreach ($s in @($rows)) {
+                Write-Host ("  {0,-28} state={1,-12} mastery={2} ({3} ok / {4} fail)" -f $s.skill_id, $s.state, $s.mastery, $s.success_count, $s.failure_count) -ForegroundColor White
+            }
+        }
+        elseif ($SkillAction -eq 'register') {
+            $data = @{ skill_id = $Skill; version = '1.0'; triggers = @() } | ConvertTo-Json -Compress
+            $tmp = Join-Path $env:TEMP ("arnes-skill-" + [guid]::NewGuid().ToString('N') + ".json")
+            Set-Content -Path $tmp -Value $data -Encoding UTF8
+            try {
+                $out = Get-Content $tmp -Raw | & $python $BrainScript $DbPath skill register "-" 2>$null
+                if (-not $Quiet) { Write-Host ("  [OK] Skill '{0}' registrada (new)" -f $Skill) -ForegroundColor Green }
+            } finally { Remove-Item $tmp -Force -ErrorAction SilentlyContinue }
+        }
+        elseif ($SkillAction -eq 'exec') {
+            $data = @{ skill_id = $Skill; version = '1.0'; agent = $Agent; quest_id = $QuestId;
+                       success = $true; verdict = 'PASS'; evidence = $Evidence } | ConvertTo-Json -Compress
+            $tmp = Join-Path $env:TEMP ("arnes-skillx-" + [guid]::NewGuid().ToString('N') + ".json")
+            Set-Content -Path $tmp -Value $data -Encoding UTF8
+            try {
+                $out = Get-Content $tmp -Raw | & $python $BrainScript $DbPath skill exec "-" 2>$null
+                if ($Quiet) { Write-Output (($out | Out-String).Trim()); exit 0 }
+                $res = $out | Out-String | ConvertFrom-Json
+                Write-Host ("  [OK] Ejecucion de '{0}': {1} (mastery={2}, {3} totales)" -f $res.skill, $res.state, $res.mastery, $res.total) -ForegroundColor Green
+            } finally { Remove-Item $tmp -Force -ErrorAction SilentlyContinue }
+        }
+        else { throw "SkillAction '$SkillAction' no soportada en CLI" }
+    }
+    'route' {
+        if (-not $Query) { throw 'Falta -Query' }
+        $out = & $python $BrainScript $DbPath route $Query $(if ($Risk) { $Risk } else { '-' }) 2>$null
+        $r = $out | Out-String | ConvertFrom-Json
+        if ($Quiet) { Write-Output ($r | ConvertTo-Json -Compress -Depth 3); exit 0 }
+        $color = switch ($r.path) { 'FAST' { 'Green' } 'RECALL' { 'Cyan' } 'SKILL' { 'Magenta' } 'DELIBERATE' { 'Yellow' } 'DEEP' { 'Red' } default { 'White' } }
+        Write-Host ("  [ROUTE] {0} -> {1}" -f $r.path, $r.reason) -ForegroundColor $color
+    }
+    'reviews' {
+        $out = & $python $BrainScript $DbPath reviews $Limit 2>$null
+        if ($Quiet) { Write-Output (($out | Out-String).Trim()); exit 0 }
+        $rows = $out | Out-String | ConvertFrom-Json
+        if ($rows.Count -eq 0) { Write-Host '  Nada por revalidar ahora.' -ForegroundColor DarkGray; exit 0 }
+        Write-Host ("  {0} memorias por revalidar:" -f $rows.Count) -ForegroundColor Cyan
+        foreach ($r in $rows) { Write-Host ("  [{0}] {1} (vol={2})" -f $r.memory_id, $r.topic_key, $r.volatility) -ForegroundColor White }
+    }
+    'checkpoint' {
+        if ($List) {
+            $out = & $python $BrainScript $DbPath checkpoint list $Limit 2>$null
+            if ($Quiet) { Write-Output (($out | Out-String).Trim()); exit 0 }
+            $rows = $out | Out-String | ConvertFrom-Json
+            foreach ($c in $rows) { Write-Host ("  [#{0}] quest={1} agent={2} continuidad={3} | {4}" -f $c.id, $c.quest_id, $c.agent, $c.continuity_score, $c.created_at) -ForegroundColor White; if ($c.next_action) { Write-Host ("        NEXT: {0}" -f $c.next_action) -ForegroundColor DarkGray } }
+            exit 0
+        }
+        if ($Id -gt 0) {
+            $out = & $python $BrainScript $DbPath checkpoint get $Id 2>$null
+            if ($Quiet) { Write-Output (($out | Out-String).Trim()); exit 0 }
+            $c = $out | Out-String | ConvertFrom-Json
+            if ($c.error) { Write-Host ("  [!] " + $c.error) -ForegroundColor Yellow; exit 0 }
+            Write-Host ("  COGNITIVE CHECKPOINT #{0}" -f $c.id) -ForegroundColor Cyan
+            Write-Host ("  Quest: {0} | Agent: {1} | Continuidad: {2}" -f $c.quest_id, $c.agent, $c.continuity_score) -ForegroundColor White
+            Write-Host ("  Goal: {0}" -f $c.goal) -ForegroundColor White
+            Write-Host ("  Phase: {0}" -f $c.phase) -ForegroundColor DarkGray
+            if ($c.pending_tasks) { Write-Host ("  Pending: {0}" -f ($c.pending_tasks -join ' | ')) -ForegroundColor Yellow }
+            if ($c.critical_memory_ids) { Write-Host ("  Decisions: {0}" -f (($c.critical_memory_ids | ForEach-Object { "#" + $_ }) -join ' ')) -ForegroundColor Yellow }
+            if ($c.active_skill) { Write-Host ("  Skill: {0}" -f $c.active_skill) -ForegroundColor Magenta }
+            if ($c.blockers) { Write-Host ("  Blocker: {0}" -f ($c.blockers -join ' | ')) -ForegroundColor Red }
+            Write-Host ("  NEXT ACTION: {0}" -f $c.next_action) -ForegroundColor Green
+            exit 0
+        }
+        if ($Create -and $NextAction) {
+            $data = @{
+                quest_id = $QuestId; agent = $Agent; goal = $Goal; phase = $Phase
+                completed_tasks = @($Completed); pending_tasks = @($Pending)
+                active_files = @($Files); modified_files = @($ModifiedFiles)
+                active_decisions = @(); critical_memory_ids = @($Decisions)
+                active_skill = $Skill
+                skill_state = @{ stage = $Stage }
+                blockers = @($Blockers); errors = @($Errors)
+                test_state = $TestState; build_state = $BuildState; git_state = $GitState
+                next_action = $NextAction; reason = 'manual'
+            } | ConvertTo-Json -Depth 5 -Compress
+            $tmp = Join-Path $env:TEMP ("arnes-cp-" + [guid]::NewGuid().ToString('N') + ".json")
+            Set-Content -Path $tmp -Value $data -Encoding UTF8
+            try {
+                $out = Get-Content $tmp -Raw | & $python $BrainScript $DbPath checkpoint create "-" 2>$null
+                $res = $out | Out-String | ConvertFrom-Json
+                if ($Quiet) { Write-Output ($res | ConvertTo-Json -Compress); exit 0 }
+                Write-Host ("  [OK] COGNITIVE CHECKPOINT #{0} creado (continuidad {1})" -f $res.id, $res.continuity_score) -ForegroundColor Green
+            } finally { Remove-Item $tmp -Force -ErrorAction SilentlyContinue }
+            exit 0
+        }
+        throw 'Uso: checkpoint -Create -QuestId X -Agent X -Goal ... -NextAction ... | checkpoint -Id N | checkpoint -List'
+    }
+    'capsule' {
+        if ($Id -le 0) { throw 'Falta -Id (capsule -Id 5)' }
+        $out = & $python $BrainScript $DbPath capsule $Id 2>$null
+        if ($Quiet) { Write-Output (($out | Out-String).Trim()); exit 0 }
+        $r = $out | Out-String | ConvertFrom-Json
+        Write-Host ("  RECOVERY CAPSULE #{0} (continuidad {1})" -f $r.id, $r.continuity_score) -ForegroundColor Cyan
+        Write-Host ''
+        Write-Host "  $($r.capsule)" -ForegroundColor White
+        Write-Host ''
+    }
+    'continuity' {
+        if ($Id -le 0) { throw 'Falta -Id' }
+        $out = & $python $BrainScript $DbPath continuity $Id 2>$null
+        if ($Quiet) { Write-Output (($out | Out-String).Trim()); exit 0 }
+        $r = $out | Out-String | ConvertFrom-Json
+        Write-Host ("  [CONTINUIDAD] Checkpoint #{0}: {1}" -f $r.id, $r.continuity_score) -ForegroundColor Green
+    }
+    'consolidate-recent' {
+        $out = & $python $BrainScript $DbPath consolidate-recent $Hours 2>$null
+        if ($Quiet) { Write-Output (($out | Out-String).Trim()); exit 0 }
+        $r = $out | Out-String | ConvertFrom-Json
+        Write-Host ("  [CONSOLIDACION] {0} experiencias: working={1} episodic={2} semantic={3} procedural={4} noise={5}" -f $r.classified, $r.working, $r.episodic, $r.semantic, $r.procedural, $r.noise) -ForegroundColor Green
+    }
+    'cognitive-compact' {
+        # Flujo completo: consolidar reciente + checkpoint + capsule
+        & $python $BrainScript $DbPath consolidate-recent $Hours 2>$null | Out-Null
+        $data = @{
+            quest_id = $QuestId; agent = $Agent; goal = $Goal
+            completed_tasks = @($Completed); pending_tasks = @($Pending)
+            active_files = @($Files); critical_memory_ids = @($Decisions)
+            active_skill = $Skill; skill_state = @{ stage = $Stage }
+            blockers = @($Blockers); errors = @($Errors)
+            test_state = $TestState; build_state = $BuildState; git_state = $GitState
+            next_action = $NextAction; reason = 'cognitive-compact'
+        } | ConvertTo-Json -Depth 5 -Compress
+        $tmp = Join-Path $env:TEMP ("arnes-cc-" + [guid]::NewGuid().ToString('N') + ".json")
+        Set-Content -Path $tmp -Value $data -Encoding UTF8
+        try {
+            $out = Get-Content $tmp -Raw | & $python $BrainScript $DbPath checkpoint create "-" 2>$null
+            $res = $out | Out-String | ConvertFrom-Json
+            if ($Quiet) { Write-Output ($res | ConvertTo-Json -Compress); exit 0 }
+            Write-Host ("  [COGNITIVE COMPACTION] Checkpoint #{0} creado (continuidad {1})" -f $res.id, $res.continuity_score) -ForegroundColor Green
+            Write-Host '  Recovery Capsule:' -ForegroundColor Cyan
+            & $python $BrainScript $DbPath capsule $res.id 2>$null | Out-String | ConvertFrom-Json | ForEach-Object { Write-Host "  $($_.capsule)" -ForegroundColor White }
+            Write-Host ''
+        } finally { Remove-Item $tmp -Force -ErrorAction SilentlyContinue }
+    }
+    'suggest-topic' {
+        if (-not $Query) { throw 'Falta -Query (texto para sugerir topico)' }
+        # Heuristica: palabras significativas (mayores a 3 letras, sin stopwords) -> topico kebab-case
+        $stop = @('para', 'que', 'con', 'los', 'las', 'una', 'uno', 'este', 'esta', 'como', 'cual', 'sobre', 'para', 'por', 'del', 'al', 'su', 'sus', 'the', 'and', 'with', 'from', 'this', 'that', 'was', 'were', 'will', 'have', 'has', 'been', 'our', 'your')
+        $words = @($Query.ToLower() -split '\W+' | Where-Object { $_.Length -gt 3 -and $_ -notin $stop })
+        $topic = ($words | Select-Object -First 3) -join '-'
+        if (-not $topic) { $topic = 'topic-' + (Get-Date -Format 'yyyyMMdd-HHmm') }
+        if ($Quiet) { Write-Output $topic; exit 0 }
+        Write-Host ("  [OK] Topico sugerido: {0}" -f $topic) -ForegroundColor Green
+    }
+    'revisions' {
+        if ($Id -le 0) { throw 'Falta -Id (revisions -Id 8)' }
+        $out = & $python $BrainScript $DbPath revisions $Id 2>$null
+        $revs = $out | Out-String | ConvertFrom-Json
+        if ($Quiet) { Write-Output ($revs | ConvertTo-Json -Compress -Depth 4); exit 0 }
+        if ($revs.Count -eq 0) { Write-Host '  Sin revisiones (el topico nunca se sobrescribio).' -ForegroundColor DarkGray; exit 0 }
+        Write-Host ("  Revisiones de la observacion {0}:" -f $Id) -ForegroundColor Cyan
+        foreach ($rv in $revs) {
+            $short = $rv.content
+            if ($short.Length -gt 90) { $short = $short.Substring(0, 90) + '...' }
+            Write-Host ("  [rev {0} | {1}] {2}" -f $rv.id, $rv.created_at, $short) -ForegroundColor White
+        }
+    }
+    'compact' {
+        $out = & $python $BrainScript $DbPath compact $OlderThanDays 2>$null
+        $res = $out | Out-String | ConvertFrom-Json
+        if ($Quiet) { Write-Output ($res | ConvertTo-Json -Compress -Depth 3); exit 0 }
+        Write-Host ("  [OK] Compactado: {0} observaciones > digests ({1})" -f $res.compacted, $res.digests) -ForegroundColor Green
+        Write-Host ("       corte: antes de {0}" -f $res.cutoff) -ForegroundColor DarkGray
+    }
+    'backup' {
+        $target = Join-Path $ArnesDir 'backups'
+        if (-not (Test-Path $target)) { New-Item -ItemType Directory -Path $target -Force | Out-Null }
+        $stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
+        $backupDir = Join-Path $target "backup-$stamp"
+        $out = & $python $BrainScript $DbPath export $backupDir 2>$null
+        $res = $out | Out-String | ConvertFrom-Json
+        if ($Quiet) { Write-Output ($res | ConvertTo-Json -Compress -Depth 3); exit 0 }
+        Write-Host ("  [OK] Backup creado en {0} ({1} archivos)" -f $backupDir, $res.count) -ForegroundColor Green
+    }
     'search' {
         if (-not $Query) { throw 'Falta -Query' }
         $agentArg = if ($Agent) { $Agent } else { '-' }
-        $out = & $python $BrainScript $DbPath search $Query $agentArg $Limit 2>$null
-        $results = $out | Out-String | ConvertFrom-Json
+        $tagArg = if ($Tag) { $Tag } else { '-' }
+        $out = & $python $BrainScript $DbPath search $Query $agentArg $Limit $tagArg 2>$null
+        if ($Quiet) { Write-Output (($out | Out-String).Trim()); exit 0 }        $results = $out | Out-String | ConvertFrom-Json
         if (-not $results -or $results.Count -eq 0) {
             Write-Host '  No se encontraron recuerdos.' -ForegroundColor Yellow
             exit 0
@@ -154,6 +489,7 @@ switch ($Command) {
     'context' {
         $out = & $python $BrainScript $DbPath context $Limit 2>$null
         $results = $out | Out-String | ConvertFrom-Json
+        if ($Quiet) { Write-Output ($results | ConvertTo-Json -Compress -Depth 5); exit 0 }
         Write-Host ("  Contexto reciente: {0} observaciones" -f $results.Count) -ForegroundColor Cyan
         foreach ($r in ($results | Select-Object -First 10)) {
             Write-Host ('  [{0}] {1} | {2}' -f $r.id, $r.agent, $r.topic_key) -ForegroundColor White
@@ -163,6 +499,7 @@ switch ($Command) {
         if (-not $Agent) { throw 'Falta -Agent' }
         $out = & $python $BrainScript $DbPath agent $Agent $Limit 2>$null
         $results = $out | Out-String | ConvertFrom-Json
+        if ($Quiet) { Write-Output ($results | ConvertTo-Json -Compress -Depth 5); exit 0 }
         Write-Host ("  Memoria de {0}: {1} recuerdos" -f $Agent, $results.Count) -ForegroundColor Cyan
         foreach ($r in ($results | Select-Object -First 10)) {
             Write-Host ('  [{0}] {1}' -f $r.id, $r.topic_key) -ForegroundColor Yellow
@@ -186,8 +523,9 @@ switch ($Command) {
     'stats' {
         $out = & $python $BrainScript $DbPath stats 2>$null
         $s = $out | Out-String | ConvertFrom-Json
+        if ($Quiet) { Write-Output ($s | ConvertTo-Json -Compress -Depth 3); exit 0 }
         Write-Host ''
-        Write-Host '  ARNES BRAIN - STATS' -ForegroundColor Cyan
+        Write-Host '  OSMA - STATS' -ForegroundColor Cyan
         Write-Host ("  {0,-18} {1}" -f 'Agentes:', $s.agents) -ForegroundColor White
         Write-Host ("  {0,-18} {1}" -f 'Observaciones:', $s.observations) -ForegroundColor White
         Write-Host ("  {0,-18} {1}" -f 'Quests:', $s.quests) -ForegroundColor White
@@ -212,6 +550,54 @@ switch ($Command) {
             $color = if ($q.result -eq 'PASS') { 'Green' } else { 'Red' }
             Write-Host ("  {0} [{1}] {2} ({3} tokens)" -f $q.id, $q.result, $q.quest_type, $q.tokens_used) -ForegroundColor $color
         }
+    }
+    'aquest' {
+        if ($Create -and $QuestId) {
+            $data = @{ id = $QuestId; description = $Goal; mode = $Phase } | ConvertTo-Json -Compress
+            $tmp = Join-Path $env:TEMP ("arnes-aq-" + [guid]::NewGuid().ToString('N') + ".json")
+            Set-Content $tmp $data -Encoding UTF8
+            try { $out = Get-Content $tmp -Raw | & $python $BrainScript $DbPath aquest create "-" 2>$null; if (-not $Quiet) { Write-Host ("  [OK] Quest autonoma: {0}" -f (($out | Out-String).Trim())) -ForegroundColor Green } } finally { Remove-Item $tmp -Force -ErrorAction SilentlyContinue }
+            exit 0
+        }
+        if ($List) {
+            $out = & $python $BrainScript $DbPath aquest list $Limit 2>$null
+            if ($Quiet) { Write-Output (($out | Out-String).Trim()); exit 0 }
+            $rows = $out | Out-String | ConvertFrom-Json
+            foreach ($q in $rows) { Write-Host ("  {0} [{1}] {2} ({3})" -f $q.id, $q.status, $q.mode, $q.created_at) -ForegroundColor White }
+            exit 0
+        }
+        if ($QuestId) {
+            $out = & $python $BrainScript $DbPath aquest progress $QuestId 2>$null
+            if ($Quiet) { Write-Output (($out | Out-String).Trim()); exit 0 }
+            $p = $out | Out-String | ConvertFrom-Json
+            Write-Host ("  Quest {0}: {1}% | pass={2} running={3} ready={4} blocked={5} fail={6} total={7}" -f $QuestId, $p.pct, $p.pass, $p.running, $p.ready, $p.blocked, $p.fail, $p.total) -ForegroundColor Green
+            exit 0
+        }
+        throw 'Uso: aquest -Create -QuestId X -Goal ... | aquest -List | aquest -QuestId X'
+    }
+    'atask' {
+        if ($Create -and $QuestId -and $TaskId -and $Agent -and $Content) {
+            $data = @{ quest_id = $QuestId; task_id = $TaskId; description = $Content; agent = $Agent; dependencies = @($TaskDeps); acceptance = $Acceptance } | ConvertTo-Json -Compress
+            $tmp = Join-Path $env:TEMP ("arnes-at-" + [guid]::NewGuid().ToString('N') + ".json")
+            Set-Content $tmp $data -Encoding UTF8
+            try { $out = Get-Content $tmp -Raw | & $python $BrainScript $DbPath atask create "-" 2>$null; if (-not $Quiet) { Write-Host ("  [OK] Tarea creada: {0} -> {1}" -f $TaskId, $Agent) -ForegroundColor Green } } finally { Remove-Item $tmp -Force -ErrorAction SilentlyContinue }
+            exit 0
+        }
+        if ($List) {
+            $out = & $python $BrainScript $DbPath atask list $(if ($QuestId) { $QuestId } else { '-' }) $(if ($Status) { $Status } else { '-' }) 2>$null
+            if ($Quiet) { Write-Output (($out | Out-String).Trim()); exit 0 }
+            $rows = $out | Out-String | ConvertFrom-Json
+            foreach ($t in $rows) { Write-Host ("  {0,-10} [{1,-8}] {2,-10} -> {3}" -f $t.task_id, $t.status, $t.agent, $t.description) -ForegroundColor White }
+            exit 0
+        }
+        if ($Id -gt 0 -and ($Status -or $Summary)) {
+            $data = @{ id = $Id; status = $Status; summary = $Summary; blockers = @($Blockers); evidence = $Evidence; attempts = $Attempts; model = $Skill; tokens_used = $TokensUsed } | ConvertTo-Json -Compress
+            $tmp = Join-Path $env:TEMP ("arnes-atup-" + [guid]::NewGuid().ToString('N') + ".json")
+            Set-Content $tmp $data -Encoding UTF8
+            try { $out = Get-Content $tmp -Raw | & $python $BrainScript $DbPath atask update "-" 2>$null; if (-not $Quiet) { Write-Host ("  [OK] Tarea {0} -> {1}" -f $Id, $Status) -ForegroundColor Green } } finally { Remove-Item $tmp -Force -ErrorAction SilentlyContinue }
+            exit 0
+        }
+        throw 'Uso: atask -Create -QuestId X -TaskId AUTH-03 -Agent ansem -Content "..." -TaskDeps T2,T3 | atask -List -QuestId X | atask -Id N -Status pass -Summary ...'
     }
     'edge' {
         if (-not $Json) { throw 'Falta -Json (JSON con node_a, node_b, relation)' }

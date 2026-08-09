@@ -14,7 +14,9 @@ Basado en benchmarks de la industria (coding, agentic, value).
 #>
 [CmdletBinding()]
 param(
-    [switch]$Apply
+    [switch]$Apply,
+    [ValidateSet('ahorro', 'equilibrio', 'calidad')]
+    [string]$Priority = ''
 )
 
 $ErrorActionPreference = 'Stop'
@@ -23,10 +25,17 @@ $GlobalConfigDir = Join-Path $env:USERPROFILE '.config\arnes'
 $ConnPath = Join-Path $GlobalConfigDir 'connections.json'
 $ProjectDir = (Get-Location).Path
 $ArnesDir = Join-Path $ProjectDir '.arnes'
-$AgentModelsPath = Join-Path $ArnesDir 'agent-models.json'
+# Modelos por agente GLOBALES (una vez por maquina, se despliegan a los agentes)
+$AgentModelsPath = Join-Path (Join-Path $env:USERPROFILE '.config\arnes') 'agent-models.json'
 
 # Forzar UTF-8
 try { [Console]::OutputEncoding = [System.Text.Encoding]::UTF8 } catch {}
+
+# Lectura segura (no interactivo: vacio en vez de crashear)
+function Read-Input {
+    param([string]$Prompt)
+    try { return Read-Host $Prompt } catch { return '' }
+}
 
 # === Agentes con descripcion breve (para tomar la mejor decision) ===
 $AGENTS = @(
@@ -69,10 +78,39 @@ $BENCHMARKS = @{
     'nvidia/deepseek-ai/deepseek-v4-pro'   = @{ quality = 3; cost = 0; speed = 2; desc = 'DeepSeek Pro GRATIS (NVIDIA)' }
 }
 
-# === Obtener modelos disponibles de proveedores conectados ===
+# === Obtener los modelos del catalogo VIVO de proveedores CONECTADOS ===
 function Get-AvailableModels {
     if (-not (Test-Path $ConnPath)) { return @() }
     $data = Get-Content $ConnPath -Raw | ConvertFrom-Json
+
+    # Prefijos de proveedores conectados (solo los que realmente conectamos)
+    $prefixes = @()
+    foreach ($p in $data.providers.PSObject.Properties) {
+        if ($p.Value.connected) { $prefixes += ($p.Name + '/') }
+    }
+
+    # Catalogo vivo de opencode, filtrado a esos prefijos
+    $live = @()
+    try {
+        $raw = @(cmd /c 'opencode models' 2>&1)
+        if ($LASTEXITCODE -eq 0) {
+            $live = @($raw | Where-Object { $_ -match '^[\w-]+/[\w.\-+/]+$' } | ForEach-Object { $_.Trim() })
+        }
+    } catch {}
+    if ($live.Count -gt 0) {
+        $models = @()
+        foreach ($m in $live) {
+            foreach ($prefix in $prefixes) {
+                if ($m.StartsWith($prefix, [System.StringComparison]::OrdinalIgnoreCase)) {
+                    $models += $m
+                    break
+                }
+            }
+        }
+        return @($models | Sort-Object -Unique)
+    }
+
+    # Fallback: modelos hardcodeados de connections.json
     $models = @()
     foreach ($p in $data.providers.PSObject.Properties) {
         if ($p.Value.connected) {
@@ -84,6 +122,26 @@ function Get-AvailableModels {
     return @($models | Sort-Object -Unique)
 }
 
+# === Preferencia de modelo por rol (alineada a la estrategia: 75% DeepSeek, Luna razonamiento, Qwen Atlas) ===
+$ROLE_PREF = @{
+    atlas    = @('opencode-go/qwen3.8-max', 'bai/qwen3.8-max', 'opencode-go/deepseek-v4-pro', 'nvidia/deepseek-ai/deepseek-v4-pro')
+    vivi     = @('openai/gpt-5.6-luna', 'opencode-go/gpt-5.6-luna', 'bai/claude-fable-5', 'opencode-go/deepseek-v4-flash', 'nvidia/deepseek-ai/deepseek-v4-flash')
+    ansem    = @('nvidia/deepseek-ai/deepseek-v4-flash', 'opencode-go/deepseek-v4-flash', 'bai/deepseek-v4-flash', 'opencode-go/deepseek-v4-pro')
+    kuja     = @('nvidia/deepseek-ai/deepseek-v4-flash', 'opencode-go/deepseek-v4-flash', 'bai/deepseek-v4-flash', 'opencode-go/deepseek-v4-pro')
+    eiko     = @('nvidia/deepseek-ai/deepseek-v4-flash', 'opencode-go/deepseek-v4-flash', 'bai/deepseek-v4-flash', 'opencode-go/gpt-5.6-luna')
+    amarant  = @('openai/gpt-5.6-luna', 'opencode-go/gpt-5.6-luna', 'bai/claude-fable-5', 'opencode-go/deepseek-v4-pro')
+    eremez   = @('nvidia/deepseek-ai/deepseek-v4-flash', 'opencode-go/deepseek-v4-flash', 'opencode-go/gpt-5.6-luna', 'bai/deepseek-v4-flash')
+    auron    = @('nvidia/deepseek-ai/deepseek-v4-pro', 'opencode-go/deepseek-v4-pro', 'bai/claude-opus-5', 'openai/gpt-5.6-terra')
+    bran     = @('openai/gpt-5.6-luna', 'opencode-go/gpt-5.6-luna', 'bai/claude-fable-5', 'opencode-go/deepseek-v4-flash')
+    quina    = @('opencode-go/deepseek-v4-flash', 'nvidia/deepseek-ai/deepseek-v4-flash', 'opencode-go/gpt-5.6-luna', 'bai/deepseek-v4-flash')
+    varys    = @('openai/gpt-5.6-luna', 'opencode-go/gpt-5.6-luna', 'opencode-go/deepseek-v4-flash', 'nvidia/deepseek-ai/deepseek-v4-flash')
+    tywin    = @('nvidia/deepseek-ai/deepseek-v4-flash', 'opencode-go/deepseek-v4-flash', 'openai/gpt-5.6-luna', 'opencode-go/deepseek-v4-pro')
+    sam      = @('openai/gpt-5.6-luna', 'opencode-go/gpt-5.6-luna', 'bai/claude-fable-5', 'opencode-go/deepseek-v4-pro')
+    bard     = @('openai/gpt-5.6-luna', 'opencode-go/gpt-5.6-luna', 'bai/claude-fable-5', 'opencode-go/deepseek-v4-flash')
+    tidus    = @('opencode-go/deepseek-v4-flash', 'nvidia/deepseek-ai/deepseek-v4-flash', 'opencode-go/gpt-5.6-luna', 'bai/deepseek-v4-flash')
+    ragnarok = @('openai/gpt-5.6-luna', 'opencode-go/gpt-5.6-luna', 'bai/claude-opus-5', 'opencode-go/deepseek-v4-pro')
+}
+
 # === Recomendar modelo para un rol segun prioridad ===
 function Get-Recommendation {
     param(
@@ -93,6 +151,22 @@ function Get-Recommendation {
     $models = Get-AvailableModels
     if ($models.Count -eq 0) { return '' }
 
+    # 1) Preferencia por rol (alineada a la estrategia del usuario)
+    $pref = $ROLE_PREF[$AgentKey]
+    if ($pref) {
+        $avail = @($pref | Where-Object { $models -contains $_ -and $BENCHMARKS[$_] })
+        if ($avail.Count -gt 0) {
+            if ($Priority -eq 'ahorro') {
+                return ($avail | Sort-Object { $BENCHMARKS[$_].cost } | Select-Object -First 1)
+            }
+            if ($Priority -eq 'calidad') {
+                return ($avail | Sort-Object { $BENCHMARKS[$_].quality } -Descending | Select-Object -First 1)
+            }
+            return $avail[0]
+        }
+    }
+
+    # 2) Fallback: score segun prioridad
     $best = $null
     $bestScore = -1
     foreach ($m in $models) {
@@ -113,6 +187,8 @@ function Get-Recommendation {
 }
 
 # === MAIN ===
+# Guard: cuando se hace dot-source (argos.ps1 reutiliza el motor), no se ejecuta el main
+if ($MyInvocation.InvocationName -ne '.') {
 Write-Host ''
 Write-Host '  ╔══════════════════════════════════════════════════════════╗' -ForegroundColor DarkRed
 Write-Host '  ║   ARNES ARGOS - Recomendacion inteligente de modelos     ║' -ForegroundColor White
@@ -123,8 +199,14 @@ Write-Host ''
 $models = Get-AvailableModels
 if ($models.Count -eq 0) {
     Write-Host '  [!] No hay proveedores conectados.' -ForegroundColor Yellow
-    Write-Host '  Primero conecta tus modelos de IA:' -ForegroundColor White
-    Write-Host '    argos connect' -ForegroundColor Cyan
+    Write-Host ''
+    Write-Host '  ▸ RAGNAROK (Compras) sugiere conectar primero:' -ForegroundColor Cyan
+    Write-Host '    nvidia      -> DeepSeek V4 Flash/Pro GRATIS (ahorro maximo)' -ForegroundColor White
+    Write-Host '    opencode-go -> DeepSeek V4 Flash workhorse + Qwen3.8 Max (Atlas)' -ForegroundColor White
+    Write-Host '    openai      -> GPT-5.6 Luna/Terra/Sol (cuenta ChatGPT Plus/Pro)' -ForegroundColor White
+    Write-Host '    bai         -> Claude Opus 5 / GPT-5.6 Sol (calidad elite)' -ForegroundColor White
+    Write-Host ''
+    Write-Host '  Conecta el que prefieras con: argos connect' -ForegroundColor Yellow
     Write-Host '  (Se hace UNA VEZ por computadora - conexiones globales)' -ForegroundColor DarkGray
     exit 1
 }
@@ -133,13 +215,17 @@ Write-Host "  Proveedores conectados ($($models.Count) modelos disponibles):" -F
 $models | ForEach-Object { Write-Host "    $_" -ForegroundColor White }
 Write-Host ''
 
-# 2. Preguntar prioridad
-Write-Host '  ¿Que prefieres?' -ForegroundColor White
-Write-Host '  [1] AHORRAR tokens (usa modelos baratos/gratis)' -ForegroundColor Yellow
-Write-Host '  [2] EQUILIBRIO (calidad/costo balanceado)' -ForegroundColor Green
-Write-Host '  [3] MAXIMA CALIDAD (los mejores modelos sin importar costo)' -ForegroundColor Magenta
-$choice = Read-Host '  Elige [1/2/3]'
-$priority = switch ($choice) { '1' { 'ahorro' } '3' { 'calidad' } default { 'equilibrio' } }
+# 2. Preguntar prioridad (o usar la del parametro -Priority)
+if (-not $Priority) {
+    Write-Host '  ¿Que prefieres?' -ForegroundColor White
+    Write-Host '  [1] AHORRAR tokens (usa modelos baratos/gratis)' -ForegroundColor Yellow
+    Write-Host '  [2] EQUILIBRIO (calidad/costo balanceado)' -ForegroundColor Green
+    Write-Host '  [3] MAXIMA CALIDAD (los mejores modelos sin importar costo)' -ForegroundColor Magenta
+    $choice = Read-Input '  Elige [1/2/3]'
+    $priority = switch ($choice) { '1' { 'ahorro' } '3' { 'calidad' } default { 'equilibrio' } }
+} else {
+    $priority = $Priority
+}
 
 Write-Host ''
 Write-Host "  ▸ Prioridad: $priority" -ForegroundColor Cyan
@@ -165,9 +251,12 @@ if ($Apply) {
     }
     $out | ConvertTo-Json -Depth 6 | Set-Content -Path $AgentModelsPath -Encoding UTF8
     Write-Host ''
-    Write-Host '  [OK] Recomendacion guardada en .arnes/agent-models.json' -ForegroundColor Green
+    Write-Host '  [OK] Recomendacion guardada en la MAQUINA (~/.config/arnes/agent-models.json)' -ForegroundColor Green
+    Write-Host '  Aplicando modelos a los agentes instalados (opencode)...' -ForegroundColor Cyan
+    & (Join-Path $ScriptDir 'argos-models-apply.ps1')
     Write-Host '  Puedes ajustar manualmente con: argos configure' -ForegroundColor DarkGray
 } else {
     Write-Host ''
     Write-Host '  Para guardar: usa -Apply  (argos recommend -Apply)' -ForegroundColor DarkGray
 }
+} # fin guard main (dot-source)

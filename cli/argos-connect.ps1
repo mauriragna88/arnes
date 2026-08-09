@@ -5,7 +5,7 @@ ARGOS CONNECT - Gestor de conexiones y proveedores (nuestro propio /connect)
 
 .DESCRIPTION
 Maneja .arnes/connections.json: proveedores, API keys, OAuth, modelos disponibles.
-Todo propio de ARNES ARGOS - nada de opencode auth, nada de gentle-ai.
+Todo propio de ARNES ARGOS - conexiones globales de la maquina, cero dependencias externas.
 
 .EXAMPLE
 .\argos-connect.ps1 list              -> ver conexiones
@@ -15,7 +15,7 @@ Todo propio de ARNES ARGOS - nada de opencode auth, nada de gentle-ai.
 [CmdletBinding()]
 param(
     [Parameter(Position = 0)]
-    [ValidateSet('init', 'list', 'status', 'add', 'remove', 'set-key', 'models')]
+    [ValidateSet('init', 'list', 'status', 'verify', 'add', 'remove', 'set-key', 'models')]
     [string]$Command = 'list',
 
     [string]$Name,
@@ -39,9 +39,9 @@ $ArnesDir = Join-Path $ProjectDir '.arnes'
 
 # Proveedores conocidos (defaults - el usuario puede agregar custom)
 $KNOWN_PROVIDERS = @{
-    'openai' = @{ type = 'oauth'; name = 'OpenAI (cuenta GPT)'; base_url = 'https://api.openai.com/v1'; models = @('gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna', 'gpt-5.5', 'gpt-5.4') }
-    'claude' = @{ type = 'oauth'; name = 'Claude (cuenta)'; base_url = 'https://api.anthropic.com/v1'; models = @('claude-opus-5', 'claude-sonnet-5', 'claude-fable-5') }
-    'opencode-go' = @{ type = 'api'; name = 'OpenCode Go'; base_url = 'https://api.opencode.ai/v1'; key_env = 'OPENCODE_GO_API_KEY'; models = @('deepseek-v4-flash', 'deepseek-v4-pro', 'qwen3.8-max', 'gpt-5.6-luna', 'glm-5.2', 'kimi-k2.6') }
+    'openai' = @{ type = 'oauth'; name = 'OpenAI (cuenta GPT)'; base_url = 'https://api.openai.com/v1'; login_url = 'https://chatgpt.com/auth/login'; models = @('gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna', 'gpt-5.5', 'gpt-5.4') }
+    'claude' = @{ type = 'oauth'; name = 'Claude (cuenta)'; base_url = 'https://api.anthropic.com/v1'; login_url = 'https://claude.ai/login'; models = @('claude-opus-5', 'claude-sonnet-5', 'claude-fable-5') }
+    'opencode-go' = @{ type = 'api'; name = 'OpenCode Go'; base_url = 'https://opencode.ai/zen/go/v1'; key_env = 'OPENCODE_GO_API_KEY'; models = @('deepseek-v4-flash', 'deepseek-v4-pro', 'qwen3.8-max', 'gpt-5.6-luna', 'glm-5.2', 'kimi-k2.6') }
     'nvidia' = @{ type = 'api'; name = 'NVIDIA NIM (gratis)'; base_url = 'https://integrate.api.nvidia.com/v1'; key_env = 'NVIDIA_API_KEY'; models = @('deepseek-ai/deepseek-v4-flash', 'deepseek-ai/deepseek-v4-pro', 'qwen/qwen3-coder-480b') }
     'bai' = @{ type = 'api'; name = 'B.AI (Claude/GPT/Qwen)'; base_url = 'https://api.b.ai/v1'; key_env = 'BAI_API_KEY'; models = @('claude-opus-5', 'claude-fable-5', 'gpt-5.6-sol', 'qwen3.8-max', 'deepseek-v4-flash') }
     'z-ai' = @{ type = 'api'; name = 'Z.AI (Zhipu GLM)'; base_url = 'https://open.bigmodel.cn/api/paas/v4'; key_env = 'ZHIPU_API_KEY'; models = @('glm-5.2') }
@@ -63,7 +63,20 @@ function Write-Connections {
 }
 
 function Init-Connections {
-    if (Test-Path $ConnPath) { Write-Output '  [OK] connections.json ya existe.'; return }
+    if (Test-Path $ConnPath) {
+        # Migracion idempotente: asegurar login_url en proveedores conocidos (OAuth)
+        $data = Read-Connections
+        $changed = $false
+        foreach ($k in $KNOWN_PROVIDERS.Keys) {
+            if ($data.providers.$k -and -not $data.providers.$k.login_url) {
+                $loginUrl = if ($KNOWN_PROVIDERS[$k].login_url) { $KNOWN_PROVIDERS[$k].login_url } else { '' }
+                $data.providers.$k | Add-Member -NotePropertyName 'login_url' -NotePropertyValue $loginUrl -Force
+                $changed = $true
+            }
+        }
+        if ($changed) { $data.updated_at = (Get-Date -Format 'yyyy-MM-dd HH:mm:ss'); Write-Connections $data }
+        Write-Output '  [OK] connections.json ya existe.'; return
+    }
     $providers = [ordered]@{}
     foreach ($k in $KNOWN_PROVIDERS.Keys | Sort-Object) {
         $p = $KNOWN_PROVIDERS[$k]
@@ -71,6 +84,7 @@ function Init-Connections {
             type       = $p.type
             name       = $p.name
             base_url   = $p.base_url
+            login_url  = if ($p.login_url) { $p.login_url } else { '' }
             key_env    = if ($p.key_env) { $p.key_env } else { '' }
             api_key    = ''
             connected  = $false
@@ -87,21 +101,75 @@ function Init-Connections {
     Write-Output "  [OK] connections.json creado en $ConnPath"
 }
 
+# === Obtener la key efectiva de un proveedor (api_key directa o variable de entorno) ===
+function Get-ProviderKey {
+    param($Provider)
+    if ($Provider.api_key) { return [string]$Provider.api_key }
+    if ($Provider.key_env) {
+        $envVal = Get-Item "Env:$($Provider.key_env)" -ErrorAction SilentlyContinue
+        if ($envVal) { return [string]$envVal.Value }
+    }
+    return ''
+}
+
+# === Verificar sesion OAuth real en opencode (auth.json) ===
+function Test-OAuthSession {
+    param([string]$ProviderName)
+    $map = @{ 'openai' = 'OpenAI'; 'claude' = 'Anthropic' }
+    $needle = if ($map.ContainsKey($ProviderName)) { $map[$ProviderName] } else { $ProviderName }
+    $prevEap = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'   # el ANSI de stderr de opencode.exe no debe romper
+    $raw = @()
+    try { $raw = @(& opencode auth list 2>&1) } catch {}
+    $ErrorActionPreference = $prevEap
+    $line = @($raw | Where-Object { $_ -match [regex]::Escape($needle) } | Select-Object -First 1)
+    return ($line.Count -gt 0 -and $line[0] -match 'oauth|api')
+}
+
+# === Verificar que una conexion es REAL (API probada contra /models, OAuth con sesion) ===
+function Test-ProviderConnection {
+    param([string]$ProviderName, $Provider)
+    if ($Provider.type -ne 'oauth') {
+        $key = Get-ProviderKey $Provider
+        if (-not $key) { return @{ ok = $false; detail = 'sin key (falta api_key o variable de entorno)' } }
+        $url = $Provider.base_url.TrimEnd('/') + '/models'
+        try {
+            $null = Invoke-RestMethod -Uri $url -Headers @{ Authorization = "Bearer $key" } -Method Get -TimeoutSec 20 -ErrorAction Stop
+            return @{ ok = $true; detail = 'verificado (la API responde con la key)' }
+        } catch {
+            $code = 0
+            try { $code = [int]$_.Exception.Response.StatusCode } catch {}
+            if ($code -eq 401 -or $code -eq 403) { return @{ ok = $false; detail = "key INVALIDA (HTTP $code)" } }
+            return @{ ok = $true; detail = "key presente (verificacion de red no disponible: HTTP $code)" }
+        }
+    }
+    # OAuth
+    $authed = Test-OAuthSession -ProviderName $ProviderName
+    if ($authed) { return @{ ok = $true; detail = 'sesion OAuth verificada (plan)' } }
+    return @{ ok = $false; detail = 'sin sesion OAuth (corre: argos connect)' }
+}
+
 function Show-Status {
     $data = Read-Connections
     if (-not $data) { Write-Output '  [!] No hay connections.json. Usa: argos-connect.ps1 init'; return }
     Write-Host ''
-    Write-Host '  ARNES ARGOS - CONEXIONES' -ForegroundColor Cyan
-    Write-Host '  ========================' -ForegroundColor Cyan
+    Write-Host '  ARNES ARGOS - CONEXIONES (verificadas)' -ForegroundColor Cyan
+    Write-Host '  =====================================' -ForegroundColor Cyan
     foreach ($p in $data.providers.PSObject.Properties) {
         $v = $p.Value
-        $status = if ($v.connected) { '[OK]' } else { '[--]' }
         $type = if ($v.type -eq 'oauth') { 'OAuth' } else { 'API' }
-        $color = if ($v.connected) { 'Green' } else { 'DarkGray' }
-        Write-Host ("  {0} {1,-12} {2,-35} {3}" -f $status, $p.Name, $v.name, $type) -ForegroundColor $color
-        if ($v.connected) {
+        if (-not $v.connected) {
+            Write-Host ("  [--] {0,-12} {1,-35} {2}" -f $p.Name, $v.name, $type) -ForegroundColor DarkGray
+            continue
+        }
+        $test = Test-ProviderConnection -ProviderName $p.Name -Provider $v
+        if ($test.ok) {
+            Write-Host ("  [OK] {0,-12} {1,-35} {2}" -f $p.Name, $v.name, $type) -ForegroundColor Green
+            Write-Host ("      {0}" -f $test.detail) -ForegroundColor DarkGray
             Write-Host ("      base: {0}" -f $v.base_url) -ForegroundColor DarkGray
-            Write-Host ("      modelos: {0}" -f ($v.models -join ', ')) -ForegroundColor DarkGray
+        } else {
+            Write-Host ("  [!!] {0,-12} {1,-35} {2}" -f $p.Name, $v.name, $type) -ForegroundColor Yellow
+            Write-Host ("      {0}" -f $test.detail) -ForegroundColor DarkGray
         }
     }
 }
@@ -136,6 +204,7 @@ switch ($Command) {
             type      = $p.type
             name      = $p.name
             base_url  = $p.base_url
+            login_url = if ($p.login_url) { $p.login_url } else { '' }
             key_env   = if ($p.key_env) { $p.key_env } else { '' }
             api_key   = ''
             connected = $false
@@ -156,7 +225,23 @@ switch ($Command) {
         $data.providers.$Name.connected = $true
         $data.updated_at = (Get-Date -Format 'yyyy-MM-dd HH:mm:ss')
         Write-Connections $data
-        Write-Output "  [OK] '$Name' conectado (api_key configurada)."
+        # Verificar la conexion REAL contra la API
+        $test = Test-ProviderConnection -ProviderName $Name -Provider $data.providers.$Name
+        if ($test.ok) {
+            Write-Output "  [OK] '$Name' conectado y VERIFICADO: $($test.detail)."
+        } else {
+            Write-Output "  [!] '$Name' configurado pero NO verificado: $($test.detail)."
+        }
+    }
+    'verify' {
+        $data = Read-Connections
+        if (-not $data) { Write-Output '  [!] No hay connections.json.'; return }
+        foreach ($p in $data.providers.PSObject.Properties) {
+            if (-not $p.Value.connected) { Write-Output ("  [--] " + $p.Name + ": sin conectar"); continue }
+            $t = Test-ProviderConnection -ProviderName $p.Name -Provider $p.Value
+            $mark = if ($t.ok) { '[OK]' } else { '[!!]' }
+            Write-Output ("  " + $mark + " " + $p.Name + ": " + $t.detail)
+        }
     }
     'remove' {
         if (-not $Name) { throw 'Falta -Name' }

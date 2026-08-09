@@ -104,10 +104,6 @@ Check "repo-profile.ps1 existe" "cli" {
     Test-Path (Join-Path $ArnesRoot "cli\repo-profile.ps1")
 }
 
-Check "engram-helpers.ps1 existe" "cli" {
-    Test-Path (Join-Path $ArnesRoot "cli\engram-helpers.ps1")
-}
-
 Check "update-ledger.ps1 existe" "cli" {
     Test-Path (Join-Path $ArnesRoot "cli\update-ledger.ps1")
 }

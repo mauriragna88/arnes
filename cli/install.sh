@@ -97,8 +97,8 @@ else
     fi
 fi
 
-# === Crear wrapper global 'atlas' ===
-Step "Creando wrapper 'atlas' en PATH..."
+# === Crear wrappers globales 'atlas' y 'argos' ===
+Step "Creando wrappers 'atlas' y 'argos' en PATH..."
 WRAPPER_DIR="$HOME/.local/bin"
 mkdir -p "$WRAPPER_DIR"
 WRAPPER_PATH="$WRAPPER_DIR/atlas"
@@ -108,16 +108,26 @@ cat > "$WRAPPER_PATH" <<EOF
 exec pwsh -NoProfile -File "$INSTALL_DIR/cli/atlas.ps1" "\$@"
 EOF
 chmod +x "$WRAPPER_PATH"
-OK "Wrapper creado en $WRAPPER_PATH"
+OK "Wrapper 'atlas' creado en $WRAPPER_PATH"
+ARGOS_WRAPPER="$WRAPPER_DIR/argos"
+cat > "$ARGOS_WRAPPER" <<EOF
+#!/usr/bin/env bash
+# argos wrapper para Linux/Mac
+exec pwsh -NoProfile -File "$INSTALL_DIR/cli/argos.ps1" "\$@"
+EOF
+chmod +x "$ARGOS_WRAPPER"
+OK "Wrapper 'argos' creado en $ARGOS_WRAPPER"
 
 # === Sync inicial ===
-Step "Sincronizando agentes y skill trees..."
+Step "Sincronizando agentes, skills y setup global..."
 pushd "$INSTALL_DIR" >/dev/null
-if pwsh -NoProfile -File "$INSTALL_DIR/cli/atlas.ps1" >/dev/null 2>&1; then
+if pwsh -NoProfile -File "$INSTALL_DIR/cli/atlas.ps1" --sync >/dev/null 2>&1; then
     OK "Sincronizacion inicial completada"
 else
-    Warn "Sincronizacion inicial fallo (probablemente esperaba input interactivo). Puedes correr 'atlas' despues para reintentar."
+    Warn "Sincronizacion inicial fallo. Puedes correr 'argos' despues para reintentar."
 fi
+pwsh -NoProfile -File "$INSTALL_DIR/cli/argos-connect.ps1" init >/dev/null 2>&1
+pwsh -NoProfile -File "$INSTALL_DIR/cli/argos-models-apply.ps1" >/dev/null 2>&1
 popd >/dev/null
 
 # === Mensaje final ===
@@ -130,7 +140,9 @@ echo "  Uso:"
 echo "    1. Asegurate que ~/.local/bin este en tu PATH"
 echo "    2. Abre una NUEVA terminal"
 echo "    3. cd <tu-proyecto>"
-echo "    4. atlas"
+echo "    4. argos          (entorno: connect -> configure -> chat)"
+echo "       argos connect    conectar proveedores (una vez por maquina)"
+echo "       argos configure  elegir modelo por agente (una vez por maquina)"
 echo ""
 echo "  Detectado:    ${PLATFORMS[*]}"
 echo "  Instalado en: $INSTALL_DIR"

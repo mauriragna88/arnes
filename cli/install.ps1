@@ -1,16 +1,29 @@
 ﻿#!/usr/bin/env pwsh
-# install.ps1 - Atlas Harness RPG Installer
+# install.ps1 - ARNES ARGOS Installer (oficial)
 # =============================================
 # Uso: pwsh ./install.ps1
-# O one-liner: iwr -useb https://raw.githubusercontent.com/<USER>/arnes/main/install.ps1 | iex
-#
-# Instala el harness arnes en ~/arnes + wrapper 'atlas' global
+# O one-liner: iwr -useb https://raw.githubusercontent.com/<TU-USUARIO>/arnes/main/install.ps1 | iex
+# Parametros:
+#   -RepoUrl https://github.com/<TU-USUARIO>/arnes.git   (URL del repo a instalar)
+#   -Branch main
+# Instala el harness en ~/arnes + wrappers 'argos'/'atlas' globales + sync de agentes.
 
 #Requires -Version 5.1
+[CmdletBinding()]
+param(
+    [string]$RepoUrl = "https://github.com/<TU-USUARIO>/arnes.git",
+    [string]$Branch = "main"
+)
+
 $ErrorActionPreference = "Stop"
 
-$REPO_URL    = "https://github.com/<USER>/arnes.git"
-$REPO_BRANCH = "main"
+if ($RepoUrl -like "*<TU-USUARIO>*") {
+    Write-Host ""
+    Write-Host "  [X] Falta tu URL de GitHub. Usa:" -ForegroundColor Red
+    Write-Host "      pwsh ./install.ps1 -RepoUrl https://github.com/TU-USUARIO/arnes.git" -ForegroundColor Yellow
+    exit 1
+}
+
 $INSTALL_DIR = Join-Path $HOME "arnes"
 
 function Step($m) { Write-Host ""; Write-Host "  > $m" -ForegroundColor Cyan }
@@ -53,7 +66,7 @@ if (Test-Path $INSTALL_DIR) {
     Warn "Ya existe una instalacion previa. Actualizando..."
     Push-Location $INSTALL_DIR
     try {
-        & git pull origin $REPO_BRANCH 2>&1 | Out-Null
+        & git pull origin $Branch 2>&1 | Out-Null
         OK "Repo actualizado"
     } catch {
         Warn "No pude hacer pull. Continuando con version actual."
@@ -61,10 +74,10 @@ if (Test-Path $INSTALL_DIR) {
     Pop-Location
 } else {
     try {
-        & git clone --depth 1 --branch $REPO_BRANCH $REPO_URL $INSTALL_DIR 2>&1 | Out-Null
+        & git clone --depth 1 --branch $Branch $RepoUrl $INSTALL_DIR 2>&1 | Out-Null
         OK "Repo clonado en $INSTALL_DIR"
     } catch {
-        Fail "No pude clonar el repo. Verifica tu conexion o la URL: $REPO_URL"
+        Fail "No pude clonar el repo. Verifica tu conexion o la URL: $RepoUrl"
     }
 }
 
@@ -79,6 +92,10 @@ if ($IsWindows -or ($env:OS -match "Windows")) {
     $wrapperContent = "@echo off`r`nREM atlas.cmd - Wrapper`r`npowershell -NoProfile -ExecutionPolicy Bypass -File `"$INSTALL_DIR/cli/atlas.ps1`" %*"
     Set-Content -LiteralPath $wrapperPath -Value $wrapperContent -Encoding ASCII -Force
     OK "Wrapper creado en $wrapperPath"
+    $argosWrapper = Join-Path $WRAPPER_DIR "argos.cmd"
+    $argosContent = "@echo off`r`nREM argos.cmd - Wrapper ARNES ARGOS`r`npowershell -NoProfile -ExecutionPolicy Bypass -File `"$INSTALL_DIR/cli/argos.ps1`" %*"
+    Set-Content -LiteralPath $argosWrapper -Value $argosContent -Encoding ASCII -Force
+    OK "Wrapper 'argos' creado en $argosWrapper"
 } else {
     $WRAPPER_DIR = "$HOME/.local/bin"
     if (-not (Test-Path $WRAPPER_DIR)) {
@@ -89,15 +106,27 @@ if ($IsWindows -or ($env:OS -match "Windows")) {
     Set-Content -LiteralPath $wrapperPath -Value $wrapperContent -Encoding ASCII -Force
     try { & chmod +x $wrapperPath 2>$null } catch {}
     OK "Wrapper creado en $wrapperPath"
+    $argosWrapper = Join-Path $WRAPPER_DIR "argos"
+    $argosContent = "#!/usr/bin/env pwsh`n# argos wrapper Linux/Mac`npwsh -NoProfile -File '$INSTALL_DIR/cli/argos.ps1' `$@"
+    Set-Content -LiteralPath $argosWrapper -Value $argosContent -Encoding ASCII -Force
+    try { & chmod +x $argosWrapper 2>$null } catch {}
+    OK "Wrapper 'argos' creado en $argosWrapper"
 }
 
-Step "Sincronizando agentes y skill trees..."
+Step "Sincronizando agentes, skills y setup global..."
 Push-Location $INSTALL_DIR
 try {
-    & "$INSTALL_DIR/cli/atlas.ps1" 2>&1 | Select-Object -First 20 | ForEach-Object { Write-Host "      $_" }
+    & "$INSTALL_DIR/cli/atlas.ps1" --sync 2>&1 | Select-Object -First 20 | ForEach-Object { Write-Host "      $_" }
     OK "Sincronizacion inicial completada"
 } catch {
-    Warn "Sincronizacion inicial fallo. Puedes correr 'atlas' despues para reintentar."
+    Warn "Sincronizacion inicial fallo. Puedes correr 'argos' despues para reintentar."
+}
+try {
+    & "$INSTALL_DIR/cli/argos-connect.ps1" init | Out-Null
+    & "$INSTALL_DIR/cli/argos-models-apply.ps1" 2>&1 | Select-Object -First 5 | ForEach-Object { Write-Host "      $_" }
+    OK "Configuracion global lista (~/.config/arnes)"
+} catch {
+    Warn "Setup global incompleto. Corre 'argos connect' manualmente."
 }
 Pop-Location
 
@@ -123,7 +152,9 @@ Write-Host ""
 Write-Host "  Uso:"
 Write-Host "    1. Abre una NUEVA terminal (para cargar el alias)"
 Write-Host "    2. cd <tu-proyecto>"
-Write-Host "    3. atlas"
+Write-Host "    3. argos          (entorno: connect -> configure -> chat)" -ForegroundColor Green
+Write-Host "       argos connect    conectar proveedores (una vez por maquina)"
+Write-Host "       argos configure  elegir modelo por agente (una vez por maquina)"
 Write-Host ""
 Write-Host "  Detectado:    $($platforms -join ', ')"
 Write-Host "  Instalado en: $INSTALL_DIR"

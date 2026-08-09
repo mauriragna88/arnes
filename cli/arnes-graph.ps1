@@ -35,7 +35,7 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $Root = Resolve-Path (Join-Path $PSScriptRoot '..')
-$ArnesDir = Join-Path $Root '.arnes'
+$ArnesDir = Join-Path (Get-Location) '.arnes'
 $DbPath = Join-Path $ArnesDir 'arnes.db'
 $BrainScript = Join-Path $PSScriptRoot 'arnes_brain.py'
 

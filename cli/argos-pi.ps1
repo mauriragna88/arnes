@@ -2,8 +2,10 @@
 .SYNOPSIS
 ARGOS SUPERPOWERS - launcher: health-check + arranque de Pi como runtime (single brain).
 .SUMMARY
-Solo arranca la experiencia. El desarrollo ocurre DENTRO de Pi. La única memoria
+Solo arranca la experiencia. El desarrollo ocurre DENTRO de Pi. La unica memoria
 persistente es <proyecto>/.arnes/arnes.db (pi corre con --no-session).
+La sesion principal de Pi arranca con el modelo de ATLAS (orquestador) desde
+agent-models.json - no hace falta /model manual.
 #>
 [CmdletBinding()]
 param([switch]$DryRun)
@@ -22,11 +24,20 @@ if (-not (Test-Path (Join-Path $arnes 'arnes.db'))) {
 
 # 2. health-check basico (memoria)
 Write-Host '  [ARGOS] Health-check...' -ForegroundColor Cyan
-$memCli = Join-Path $root 'cli\arnes-memory.ps1'
+$memCli = Join-Path $PSScriptRoot 'arnes-memory.ps1'
 $stats = & $memCli stats 2>&1 | Out-String
 if ($LASTEXITCODE -ne 0) {
     Write-Host "  [ARGOS] FALLO memoria: $stats" -ForegroundColor Red
     exit 1
+}
+
+# 2b. sync de skills (fusion harnesses: Pi <-> OpenCode)
+Write-Host '  [ARGOS] Sync skills (Pi <-> OpenCode)...' -ForegroundColor Cyan
+$syncCli = Join-Path $PSScriptRoot 'arnes-sync-skills.ps1'
+if (Test-Path $syncCli) {
+    & $syncCli 2>&1 | Where-Object { $_ -match '\[SYNC\]\s*[+=!]' } | ForEach-Object { Write-Host $_ -ForegroundColor DarkGray }
+} else {
+    Write-Host '  [ARGOS] AVISO: no hay arnes-sync-skills.ps1' -ForegroundColor Yellow
 }
 
 # 3. pi + superpowers + modelos
@@ -43,21 +54,35 @@ if (-not (Test-Path $models)) {
     Write-Host '  [ARGOS] AVISO: no hay agent-models.json global' -ForegroundColor Yellow
 }
 
-# 4. banner
-Write-Host '╔══════════════════════════════════════════════════╗' -ForegroundColor Red
-Write-Host '║               ARGOS SUPERPOWERS                  ║' -ForegroundColor Red
-Write-Host '╠══════════════════════════════════════════════════╣' -ForegroundColor Red
-Write-Host '║ Runtime       Pi Coding Agent                    ║' -ForegroundColor Gray
-Write-Host '║ Brain         ARGOS Cognitive Memory V3          ║' -ForegroundColor Gray
-Write-Host '║ Memory        .arnes/arnes.db                    ║' -ForegroundColor Gray
-Write-Host '║ RAG           FTS5 / BM25                        ║' -ForegroundColor Gray
-Write-Host '║ Graph         READY                              ║' -ForegroundColor Gray
-Write-Host '║ Party         16 agents                          ║' -ForegroundColor Gray
-Write-Host '║ Superpowers   READY                              ║' -ForegroundColor Gray
-Write-Host '╚══════════════════════════════════════════════════╝' -ForegroundColor Red
+# 4. modelo del ORQUESTADOR (Atlas) - la sesion principal de Pi arranca con EL
+$atlasModel = ''
+if (Test-Path $models) {
+    try {
+        $raw = Get-Content $models -Raw | ConvertFrom-Json
+        if ($raw.agents.atlas) { $atlasModel = [string]$raw.agents.atlas }
+    } catch {}
+}
+
+# 5. banner (ASCII, sin mojibake)
+Write-Host '============================================================' -ForegroundColor Red
+Write-Host '  ARGOS SUPERPOWERS' -ForegroundColor Red
+Write-Host '  Runtime       Pi Coding Agent' -ForegroundColor Gray
+Write-Host '  Brain         ARGOS Cognitive Memory V3' -ForegroundColor Gray
+Write-Host '  Memory        .arnes/arnes.db' -ForegroundColor Gray
+Write-Host '  RAG           FTS5 / BM25' -ForegroundColor Gray
+Write-Host '  Party         16 agents' -ForegroundColor Gray
+if ($atlasModel) { Write-Host ("  Orquestador   Atlas -> {0}" -f $atlasModel) -ForegroundColor Yellow }
+Write-Host '  Superpowers   READY' -ForegroundColor Gray
+Write-Host '============================================================' -ForegroundColor Red
 Write-Host ''
 
-# 5. transferir a Pi (single brain)
+# 6. transferir a Pi (single brain) - SIEMPRE con el modelo de Atlas (orquestador)
 if ($DryRun) { exit 0 }
-& pi --no-session
+if ($atlasModel) {
+    Write-Host ("  [ARGOS] Arrancando Pi con Atlas ({0}) como orquestador..." -f $atlasModel) -ForegroundColor Cyan
+    & pi --model $atlasModel --no-session
+} else {
+    Write-Host '  [ARGOS] Sin modelo de Atlas configurado - arrancando Pi default.' -ForegroundColor Yellow
+    & pi --no-session
+}
 exit $LASTEXITCODE

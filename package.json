@@ -1,0 +1,34 @@
+{
+  "name": "arnes-argos",
+  "version": "1.0.0",
+  "description": "ARNES ARGOS - Harness RPG de IA con 16 agentes: memoria propia (SQLite+FTS5), SDD/FDD/ADR propios, conexiones y modelos configurados una vez por maquina. El entorno de los 100 ojos.",
+  "keywords": [
+    "arnes",
+    "atlas",
+    "rpg",
+    "harness",
+    "agents",
+    "opencode",
+    "sdd",
+    "fdd",
+    "sqlite"
+  ],
+  "license": "MIT",
+  "bin": {
+    "argos": "bin/argos.js",
+    "atlas": "bin/argos.js"
+  },
+  "files": [
+    "bin",
+    "cli",
+    "core",
+    "docs",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=16"
+  },
+  "scripts": {
+    "postinstall": "node bin/postinstall.js"
+  }
+}
