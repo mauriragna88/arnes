@@ -5,6 +5,8 @@
 .arnes/config.json
 .arnes/arnes.db
 .arnes/connections.json
+.arnes/connections*.json
+.arnes/project.json
 .arnes/*.bak.*
 .env
 .env.*
