@@ -155,6 +155,28 @@ Dentro del chat de Atlas:
 Si el comando muestra el banner y tarda en avanzar, consulta
 [`docs/ARGOS-STARTUP.md`](docs/ARGOS-STARTUP.md) antes de cerrar la terminal.
 
+### Comandos útiles
+
+```powershell
+argos doctor     # diagnóstico de prerequisitos (9 puntos)
+argos status     # estado del proyecto + resumen XP
+argos stats      # dashboard: quests, tokens, racha, top agentes
+argos xp         # ranking de experiencia por agente (nivel)
+argos xp vivi    # nivel de un agente específico
+argos theme list # temas visuales disponibles
+argos theme set vivi  # cambia el tema (atlas/vivi/amarant/eiko/auron)
+argos test-model # prueba un modelo con el motor nativo
+```
+
+### Suite de tests
+
+```bash
+npm test          # suite completa: unit TS + funcionales PS + política + parseo + secretos + smoke
+npm run test:unit # solo tests unitarios TypeScript
+```
+
+La suite también corre automáticamente en CI (GitHub Actions) para cada push/PR.
+
 ### La cadena de modelos (cómo funciona)
 
 1. `argos configure` guarda el modelo de cada agente en el documento de la máquina.
