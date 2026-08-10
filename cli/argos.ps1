@@ -22,7 +22,7 @@ argos init               -> inicializar proyecto
 [CmdletBinding()]
 param(
     [Parameter(Position = 0)]
-    [ValidateSet('', 'menu', 'init', 'connect', 'connect-agent', 'configure', 'chat', 'status', 'models', 'model', 'memory', 'recommend', 'mode', 'doctor', 'verify', 'test-model', 'quest', 'party', 'code', 'opencode')]
+    [ValidateSet('', 'menu', 'init', 'connect', 'connect-agent', 'configure', 'chat', 'status', 'models', 'model', 'memory', 'recommend', 'mode', 'doctor', 'verify', 'test-model', 'quest', 'party', 'xp', 'code', 'opencode')]
     [string]$Command = '',
 
     [Parameter(Position = 1)]
@@ -476,6 +476,14 @@ switch ($Command) {
             Write-Host '  (Atlas decide el party y descompone; cada agente usa SU modelo)' -ForegroundColor DarkGray
         } else {
             & (Join-Path $ScriptDir 'argos-party.ps1') -Quest $q
+        }
+    }
+    'xp' {
+        $a = if ($Args -and $Args.Count -gt 0) { $Args -join ' ' } elseif ($Model) { $Model } else { '' }
+        if ($a) {
+            & (Join-Path $ScriptDir 'argos-xp.ps1') -Agent $a
+        } else {
+            & (Join-Path $ScriptDir 'argos-xp.ps1')
         }
     }
     'code' {
