@@ -18,8 +18,8 @@ independiente y verificable con `argos doctor` + parseo PowerShell.
 | # | Feature | Prioridad | Tamaño | Depende de | Estado |
 |---|---|---|---|---|---|
 | F1 | Sistema XP en CLI (nivel por agente en /party y /status) | Media | S | — | done |
-| F2 | Temas personalizables (Atlas rojo-negro, Vivi violeta, Amarant bronce) | Baja | S | — | pending |
-| F3 | Stats dashboard (tokens por sesión/día/semana, costo aprox, racha) | Media | M | F1 | pending |
+| F2 | Temas personalizables (Atlas rojo-negro, Vivi violeta, Amarant bronce) | Baja | S | — | done |
+| F3 | Stats dashboard (tokens por sesión/día/semana, costo aprox, racha) | Media | M | F1 | done |
 | F4 | Publicación en marketplaces (Smithery + skills.sh) | Baja | M | — | blocked-requires-release |
 
 ## Reglas de la lista
@@ -32,8 +32,8 @@ independiente y verificable con `argos doctor` + parseo PowerShell.
 ## Progreso
 
 - [x] F1 — Sistema XP en CLI (done)
-- [ ] F2 — Temas personalizables (pending)
-- [ ] F3 — Stats dashboard (pending)
+- [x] F2 — Temas personalizables (done)
+- [x] F3 — Stats dashboard (done)
 - [ ] F4 — Publicación en marketplaces (blocked-requires-release)
 
 ---
