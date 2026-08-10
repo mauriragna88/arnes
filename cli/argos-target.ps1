@@ -140,27 +140,34 @@ switch ($Command) {
         $resolved = if ($Target) { $Target } else { Get-CurrentTarget }
 
         if ($resolved -eq 'auto') {
-            $installed = Get-InstalledTargets
-            if ($installed.Count -eq 0) {
-                Write-Host '  [!] No hay ningun CLI instalado (opencode/codex/claude).' -ForegroundColor Red
-                Write-Host '      Instala al menos uno y vuelve a intentar.' -ForegroundColor Yellow
-                exit 1
-            }
-            if ($installed.Count -eq 1) {
-                $resolved = $installed[0]
+            # Si hay default persistido, usalo directo (sin preguntar)
+            if (Test-Path $TargetFile) {
+                $resolved = Get-CurrentTarget
+                Write-Host ("  Usando target configurado: {0} ({1})" -f $resolved, $TargetMeta[$resolved]) -ForegroundColor DarkGray
+                Write-Host '  Para cambiarlo: argos target set <nombre> | argos target list' -ForegroundColor DarkGray
             } else {
-                Write-Host ''
-                Write-Host '  ARNES ARGOS - ELIGE TU ENTORNO' -ForegroundColor DarkRed
-                for ($i = 0; $i -lt $installed.Count; $i++) {
-                    Write-Host ("  [{0}] {1} - {2}" -f ($i + 1), $installed[$i], $TargetMeta[$installed[$i]]) -ForegroundColor White
+                $installed = Get-InstalledTargets
+                if ($installed.Count -eq 0) {
+                    Write-Host '  [!] No hay ningun CLI instalado (opencode/codex/claude).' -ForegroundColor Red
+                    Write-Host '      Instala al menos uno y vuelve a intentar.' -ForegroundColor Yellow
+                    exit 1
                 }
-                $sel = Read-Input '  Elige (1-3)'
-                $idx = 0
-                if ([int]::TryParse($sel, [ref]$idx) -and $idx -ge 1 -and $idx -le $installed.Count) {
-                    $resolved = $installed[$idx - 1]
+                if ($installed.Count -eq 1) {
+                    $resolved = $installed[0]
                 } else {
-                    Write-Host '  Usando default: opencode' -ForegroundColor Yellow
-                    $resolved = 'opencode'
+                    Write-Host ''
+                    Write-Host '  ARNES ARGOS - ELIGE TU ENTORNO' -ForegroundColor DarkRed
+                    for ($i = 0; $i -lt $installed.Count; $i++) {
+                        Write-Host ("  [{0}] {1} - {2}" -f ($i + 1), $installed[$i], $TargetMeta[$installed[$i]]) -ForegroundColor White
+                    }
+                    $sel = Read-Input '  Elige (1-3)'
+                    $idx = 0
+                    if ([int]::TryParse($sel, [ref]$idx) -and $idx -ge 1 -and $idx -le $installed.Count) {
+                        $resolved = $installed[$idx - 1]
+                    } else {
+                        Write-Host '  Usando default: opencode' -ForegroundColor Yellow
+                        $resolved = 'opencode'
+                    }
                 }
             }
         }

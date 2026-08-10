@@ -171,9 +171,9 @@ argos test-model # prueba un modelo con el motor nativo
 ### Elegir el entorno de trabajo (OpenCode / Codex / Claude)
 
 ```powershell
-argos                    # menú: [9] Abrir entorno → selector si hay varios CLIs
+argos                    # menú: [9] Abrir entorno → usa tu default o muestra el selector
 argos target list        # CLIs instalados + target actual
-argos target set codex   # fija el default (opencode | codex | claude)
+argos target set codex   # fija el default (opencode | codex | claude) — [9] ya no pregunta
 argos target codex       # abre Codex con la persona Atlas cargada
 argos target claude "haz un login"   # abre Claude con un quest inicial
 argos target opencode    # flujo original (16 agentes + modelos por agente)
