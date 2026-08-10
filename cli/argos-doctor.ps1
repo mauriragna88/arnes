@@ -63,13 +63,18 @@ Add-Check 'Modelos por agente' $modelsOk $(if ($modelsOk) { "$cfgDir\agent-model
 
 # === Agentes RPG instalados ===
 $agentsDir = Join-Path $env:USERPROFILE '.config\opencode\agents'
-$agentCount = 0
+$expectedAgents = @('atlas-player', 'vivi', 'ansem', 'kuja', 'eiko', 'amarant', 'eremez', 'auron', 'bran', 'quina', 'varys', 'tywin', 'sam', 'bard', 'tidus', 'ragnarok')
+$installed = @()
 if (Test-Path $agentsDir) {
-    $agentCount = @(Get-ChildItem (Join-Path $agentsDir '*.md') -ErrorAction SilentlyContinue | Where-Object {
-        $_.BaseName -notlike '*.agent' -and $_.Name -notlike 'atlas-player*' -and $_.Name -notlike 'memory-system*' -and $_.Name -notlike 'varys-documentalist*'
-    }).Count
+    $installed = @(Get-ChildItem (Join-Path $agentsDir '*.md') -ErrorAction SilentlyContinue | ForEach-Object { $_.BaseName })
 }
-Add-Check 'Agentes RPG instalados' ($agentCount -ge 14) "$agentCount/16 agentes" 'atlas --sync  (o npm install -g .)'
+$missing = @($expectedAgents | Where-Object { $_ -notin $installed })
+$agentCount = $expectedAgents.Count - $missing.Count
+$detail = "$agentCount/16 agentes"
+if ($missing.Count -gt 0) {
+    $detail += " | faltan: " + ($missing -join ', ')
+}
+Add-Check 'Agentes RPG instalados' ($missing.Count -eq 0) $detail 'atlas --sync  (o npm install -g .)'
 
 # === Docker (opcional) ===
 $docker = Get-Command docker -ErrorAction SilentlyContinue

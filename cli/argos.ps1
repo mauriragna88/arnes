@@ -22,7 +22,7 @@ argos init               -> inicializar proyecto
 [CmdletBinding()]
 param(
     [Parameter(Position = 0)]
-    [ValidateSet('', 'menu', 'init', 'connect', 'connect-agent', 'configure', 'chat', 'status', 'models', 'model', 'memory', 'recommend', 'mode', 'doctor', 'verify', 'test-model', 'quest', 'party', 'xp', 'code', 'opencode')]
+    [ValidateSet('', 'menu', 'init', 'connect', 'connect-agent', 'configure', 'chat', 'status', 'stats', 'models', 'model', 'memory', 'recommend', 'mode', 'doctor', 'verify', 'test-model', 'quest', 'party', 'xp', 'theme', 'code', 'opencode')]
     [string]$Command = '',
 
     [Parameter(Position = 1)]
@@ -379,6 +379,29 @@ function Show-Status {
     Write-Host ("  Proyecto:    {0}" -f $state.project_name) -ForegroundColor White
     Write-Host ("  Carpeta:     {0}" -f (Get-Location)) -ForegroundColor White
     Write-Host ("  Entorno:     {0}" -f $(if ($state.is_argos) { 'ARGOS activo' } else { 'no inicializado' })) -ForegroundColor $(if ($state.is_argos) { 'Green' } else { 'Yellow' })
+    # === Resumen XP desde quest-ledger ===
+    $ledgerFile = Join-Path (Get-Location) '.arnes\quest-ledger.json'
+    if (Test-Path $ledgerFile) {
+        try {
+            $ledger = Get-Content $ledgerFile -Raw | ConvertFrom-Json
+            $xpMap = @{}
+            $questCount = 0
+            foreach ($q in @($ledger.quests)) {
+                $name = [string]$q.agent
+                if (-not $name) { continue }
+                $questCount++
+                if (-not $xpMap.ContainsKey($name)) { $xpMap[$name] = 0 }
+                $xpMap[$name] += if ([string]$q.verdict -eq 'PASS') { 100 } else { 10 }
+            }
+            $top = foreach ($r in ($xpMap.GetEnumerator() | Sort-Object Value -Descending | Select-Object -First 3)) {
+                $lvl = [math]::Floor([math]::Sqrt([int]$r.Value / 100.0)) + 1
+                "{0} Lv{1}" -f $r.Key, $lvl
+            }
+            if ($top) {
+                Write-Host ("  Quests:      {0} · Top: {1}" -f $questCount, ($top -join ' · ')) -ForegroundColor DarkGray
+            }
+        } catch { }
+    }
     Write-Host ''
     # Perfil del proyecto (ruta, git, stack, stats, memoria)
     & (Join-Path $ScriptDir 'argos-project.ps1') -Show
@@ -397,6 +420,17 @@ switch ($Command) {
     'configure' { Show-ConfigureModels }
     'chat' { Launch-Chat }
     'status' { Show-Status }
+    'stats' { & (Join-Path $ScriptDir 'argos-stats.ps1') }
+    'theme' {
+        $cmd = if ($Args -and $Args.Count -gt 0) { $Args[0] } elseif ($Model) { $Model } else { 'list' }
+        $name = if ($Args -and $Args.Count -gt 1) { $Args[1] } else { '' }
+        if ($cmd -eq 'set' -and -not $name) {
+            Write-Host '  Uso: argos theme set <nombre>' -ForegroundColor Yellow
+            Write-Host '  Temas: atlas, vivi, amarant, eiko, auron' -ForegroundColor Cyan
+        } else {
+            & (Join-Path $ScriptDir 'argos-theme.ps1') $cmd -Name $name
+        }
+    }
     'models' { Show-ConfigureModels }
     'model' {
         # argos model list                 -> listar modelos de todos los agentes

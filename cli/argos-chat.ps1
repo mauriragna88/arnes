@@ -301,6 +301,27 @@ function Show-Party {
     Write-Host '  Eiko (DevOps) · Amarant (Arq) · Eremez (Research) · Auron (Sec)' -ForegroundColor White
     Write-Host '  Bran (Analista) · Quina (Tokens) · Varys (Tracker) · Tywin (Verif)' -ForegroundColor White
     Write-Host '  Sam (Consejero) · Bard (Mejora) · Tidus (Infra) · Ragnarok (Compras)' -ForegroundColor White
+    # === Niveles XP desde quest-ledger ===
+    $ledgerFile = Join-Path (Get-Location) '.arnes\quest-ledger.json'
+    if (Test-Path $ledgerFile) {
+        try {
+            $ledger = Get-Content $ledgerFile -Raw | ConvertFrom-Json
+            $xpMap = @{}
+            foreach ($q in @($ledger.quests)) {
+                $name = [string]$q.agent
+                if (-not $name) { continue }
+                if (-not $xpMap.ContainsKey($name)) { $xpMap[$name] = 0 }
+                $xpMap[$name] += if ([string]$q.verdict -eq 'PASS') { 100 } else { 10 }
+            }
+            $levels = foreach ($r in ($xpMap.GetEnumerator() | Sort-Object Value -Descending | Select-Object -First 5)) {
+                $lvl = [math]::Floor([math]::Sqrt([int]$r.Value / 100.0)) + 1
+                "{0} Lv{1}" -f $r.Key, $lvl
+            }
+            if ($levels) {
+                Write-Host ("  Niveles:  {0}" -f ($levels -join ' · ')) -ForegroundColor DarkGray
+            }
+        } catch { }
+    }
     Write-Host ''
 }
 

@@ -4,6 +4,10 @@
 # Muestra el party, HP/MP bars, quest log, y slash commands.
 # No requiere IA conectada - es la UI standalone.
 #
+# [!] LEGADO/DEPRECADO: el CLI activo del harness es `argos`
+#     (cli/argos.ps1). Este script se mantiene por compatibilidad
+#     con activate.ps1/atlas.ps1 y no recibe features nuevas.
+#
 # Uso: .\cli\evenatan-ui.ps1
 #      .\cli\evenatan-ui.ps1 -Quest "crea login form"
 #      .\cli\evenatan-ui.ps1 -NoColor
