@@ -4,8 +4,8 @@ import { mkdtempSync, mkdirSync, copyFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { runBrain } from "../../pi/extensions/argos-brain";
-import { memoryCard } from "../../pi/extensions/argos-memory";
+import { runBrain } from "../../pi/extensions/argos-brain.js";
+import { memoryCard } from "../../pi/extensions/argos-memory.js";
 
 // Proyecto ARNES simulado: el contrato del plan resuelve el brain en
 // <proyecto>/cli/arnes_brain.py, así que se copia el brain real al fixture temporal.

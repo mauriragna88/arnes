@@ -4,9 +4,9 @@ import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { buildAgentCatalog } from "../../pi/extensions/argos-party";
-import { loadAgentModels, resolveModel } from "../../pi/extensions/argos-model-router";
-import { discoverSkills } from "../../pi/extensions/argos-skills";
+import { buildAgentCatalog } from "../../pi/extensions/argos-party.js";
+import { loadAgentModels, resolveModel } from "../../pi/extensions/argos-model-router.js";
+import { discoverSkills } from "../../pi/extensions/argos-skills.js";
 import { existsSync, readFileSync } from "node:fs";
 import { join as joinPath } from "node:path";
 

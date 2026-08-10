@@ -29,6 +29,12 @@
     "node": ">=16"
   },
   "scripts": {
-    "postinstall": "node bin/postinstall.js"
+    "postinstall": "node bin/postinstall.js",
+    "test": "node bin/run-tests.js",
+    "test:unit": "node --import tsx --test tests/unit/*.test.ts",
+    "test:ps": "powershell -NoProfile -ExecutionPolicy Bypass -File tests/run-all.ps1 -SkipSmoke"
+  },
+  "devDependencies": {
+    "tsx": "^4.23.12"
   }
 }

@@ -4,10 +4,10 @@ import { mkdtempSync, mkdirSync, copyFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { runBrain } from "../../pi/extensions/argos-brain";
-import { checkpointNow, buildRecoveryCapsule } from "../../pi/extensions/argos-compaction";
-import { isProtectedPath } from "../../pi/extensions/argos-permissions-core";
-import { classifyQuest, recommendParty } from "../../pi/extensions/argos-orchestrator";
+import { runBrain } from "../../pi/extensions/argos-brain.js";
+import { checkpointNow, buildRecoveryCapsule } from "../../pi/extensions/argos-compaction.js";
+import { isProtectedPath } from "../../pi/extensions/argos-permissions-core.js";
+import { classifyQuest, recommendParty } from "../../pi/extensions/argos-orchestrator.js";
 
 const REPO_ROOT = fileURLToPath(new URL("../../", import.meta.url));
 
