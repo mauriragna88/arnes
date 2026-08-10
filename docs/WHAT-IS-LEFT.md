@@ -38,7 +38,7 @@ Este archivo resume el estado heredado; el plan futuro vive en PLAN-ARNES.md.
   - Eremez (Ranger Research) con skills Mark/Swarm/Wide Net
 - [x] 6 Skill Tree JSON files (uno por clase)
 - [x] 3 Tactics files (party composition, turn economy, mana conservation)
-- [x] CLI Evenatan (`activate.ps1`) con deteccion auto + UI rojo-negro
+- [x] CLI legacy `activate.ps1` con deteccion auto + UI rojo-negro
 - [x] Deploy hooks para:
   - OpenCode (atlas-agent.json + alt.json model mapping)
   - Codex (codexrc.json)
@@ -77,9 +77,7 @@ Este archivo resume el estado heredado; el plan futuro vive en PLAN-ARNES.md.
 3. **Cerrar la publicación de GitHub**: separar cambios acumulados, revisar secretos, elegir
    commits atómicos y crear el primer release.
 
-4. **Revisar documentación histórica** que todavía usa nombres de prototipos como “Evenatan”.
-
-5. **Limpiar artefactos locales** antes de publicar, incluyendo imágenes o configuraciones que
+4. **Limpiar artefactos locales** antes de publicar, incluyendo imágenes o configuraciones que
    no formen parte del producto.
 
 ### Media Prioridad — Quality of Life

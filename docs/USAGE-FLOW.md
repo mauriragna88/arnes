@@ -28,7 +28,7 @@ Despues de la primera vez, `.arnes/config.json` queda guardado y no necesita re-
 
 ## Uso Diario - 3 formas de activar Atlas
 
-### Forma 1: Via CLI Evenatan (recomendado para sesion RPG completa)
+### Forma 1: Via CLI ARGOS (recomendado para sesion RPG completa)
 
 ```powershell
 # Entra a la carpeta del proyecto
@@ -38,7 +38,7 @@ cd C:\Users\LapOne Mx\Documents\GitHub\mi-proyecto
 .\arnes\cli\activate.ps1
 ```
 
-Se abre la **Evenatan UI** (terminal RPG roja y negra):
+Se abre la **ARGOS UI** (terminal RPG roja y negra):
 ```
 ================================================================
   ESCRIBE TU QUEST O COMANDO (Ctrl+C para salir)
@@ -147,7 +147,7 @@ Claude reconocera el agente Atlas del `claude_desktop_config.json`.
    ATLAS> /quit
 ```
 
-## Comandos del CLI Evenatan
+## Comandos del CLI ARGOS
 
 | Comando | Accion |
 |---|---|
