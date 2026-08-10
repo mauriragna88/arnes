@@ -58,6 +58,8 @@ Invoke-Step 'Tests funcionales PowerShell' {
     if ($LASTEXITCODE -ne 0) { throw 'orchestration-contract.tests fallo' }
     & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $Root 'tests\argos-stats-theme.tests.ps1')
     if ($LASTEXITCODE -ne 0) { throw 'argos-stats-theme.tests fallo' }
+    & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $Root 'tests\argos-target.tests.ps1')
+    if ($LASTEXITCODE -ne 0) { throw 'argos-target.tests fallo' }
 }
 
 # 3. Politica read/write

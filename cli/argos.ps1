@@ -22,7 +22,7 @@ argos init               -> inicializar proyecto
 [CmdletBinding()]
 param(
     [Parameter(Position = 0)]
-    [ValidateSet('', 'menu', 'init', 'connect', 'connect-agent', 'configure', 'chat', 'status', 'stats', 'models', 'model', 'memory', 'recommend', 'mode', 'doctor', 'verify', 'test-model', 'quest', 'party', 'xp', 'theme', 'code', 'opencode')]
+    [ValidateSet('', 'menu', 'init', 'connect', 'connect-agent', 'configure', 'chat', 'status', 'stats', 'models', 'model', 'memory', 'recommend', 'mode', 'doctor', 'verify', 'test-model', 'quest', 'party', 'xp', 'theme', 'code', 'opencode', 'target')]
     [string]$Command = '',
 
     [Parameter(Position = 1)]
@@ -341,7 +341,7 @@ function Show-Menu {
     Write-Host '  [6] Estado del entorno (/status)' -ForegroundColor White
     Write-Host '  [7] Memoria (/memory)' -ForegroundColor White
     Write-Host '  [8] Diagnostico de prerequisitos (/doctor)' -ForegroundColor White
-    Write-Host '  [9] Abrir OpenCode con nuestros agentes (/opencode)' -ForegroundColor White
+    Write-Host '  [9] Abrir entorno (OpenCode / Codex / Claude) (/target)' -ForegroundColor White
     Write-Host '  [Q] Salir' -ForegroundColor White
     Write-Host '  ================================================' -ForegroundColor DarkGray
     Write-Host ''
@@ -357,7 +357,7 @@ function Show-Menu {
         '6' { Show-Status; Read-Input '  Enter para volver'; Show-Menu }
         '7' { $mem = Join-Path $ScriptDir 'arnes-memory.ps1'; & $mem stats; Read-Input '  Enter para volver'; Show-Menu }
         '8' { & (Join-Path $ScriptDir 'argos-doctor.ps1'); Read-Input '  Enter para volver'; Show-Menu }
-        '9' { & (Join-Path $ScriptDir 'argos-opencode.ps1') }
+        '9' { & (Join-Path $ScriptDir 'argos-target.ps1') -Target auto }
         'q' { Write-Host '  Adios. Los 100 ojos te observan.'; exit 0 }
         'Q' { Write-Host '  Adios. Los 100 ojos te observan.'; exit 0 }
         default { Show-Menu }
@@ -535,6 +535,23 @@ switch ($Command) {
         $q = @($Model) + @($Args) | Where-Object { $_ } | ForEach-Object { [string]$_ }
         $q = $q -join ' '
         & (Join-Path $ScriptDir 'argos-opencode.ps1') -Quest $q
+    }
+    'target' {
+        # argos target [opencode|codex|claude|auto|show|list|set <nombre>]
+        $verb = if ($Model) { $Model } elseif ($Args -and $Args.Count -gt 0) { $Args[0] } else { '' }
+        $name = if ($Args -and $Args.Count -gt 1) { $Args[1] } else { '' }
+        $quest = if ($Args -and $Args.Count -gt 2) { ($Args[2..($Args.Count - 1)] -join ' ') } else { '' }
+        if ($verb -in @('opencode', 'codex', 'claude', 'auto')) {
+            & (Join-Path $ScriptDir 'argos-target.ps1') -Target $verb -Quest $quest
+        } elseif ($verb -eq 'set') {
+            & (Join-Path $ScriptDir 'argos-target.ps1') set -Name $name
+        } elseif ($verb -eq 'show') {
+            & (Join-Path $ScriptDir 'argos-target.ps1') show
+        } elseif ($verb -eq 'list') {
+            & (Join-Path $ScriptDir 'argos-target.ps1') list
+        } else {
+            & (Join-Path $ScriptDir 'argos-target.ps1')
+        }
     }
     'menu' { Show-Menu }
     'test-model' {

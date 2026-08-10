@@ -168,6 +168,24 @@ argos theme set vivi  # cambia el tema (atlas/vivi/amarant/eiko/auron)
 argos test-model # prueba un modelo con el motor nativo
 ```
 
+### Elegir el entorno de trabajo (OpenCode / Codex / Claude)
+
+```powershell
+argos                    # menú: [9] Abrir entorno → selector si hay varios CLIs
+argos target list        # CLIs instalados + target actual
+argos target set codex   # fija el default (opencode | codex | claude)
+argos target codex       # abre Codex con la persona Atlas cargada
+argos target claude "haz un login"   # abre Claude con un quest inicial
+argos target opencode    # flujo original (16 agentes + modelos por agente)
+```
+
+- **opencode**: sincroniza los 16 agentes RPG con su modelo propio y abre `opencode --agent atlas-player`.
+- **codex**: despliega la persona Atlas a `~/.codex/AGENTS.md` y abre `codex` (o `codex exec <quest>`).
+- **claude**: despliega la persona Atlas a `~/.claude/CLAUDE.md` y abre `claude` (o `claude -p <quest>`).
+
+En los tres casos ARNES aporta personas, agentes y la memoria del proyecto
+(`.arnes/arnes.db`); el modelo lo gestiona cada CLI.
+
 ### Suite de tests
 
 ```bash

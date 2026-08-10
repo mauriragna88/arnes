@@ -6,6 +6,10 @@ Todos los cambios relevantes de ARNES ARGOS se registran en este archivo.
 
 ### Añadido
 
+- `argos target`: selector de entorno de trabajo — abre OpenCode, Codex o Claude con el
+  entorno ARNES cargado (personas/agentes/memoria). Default persistido en
+  `~/.config/arnes/target.json`; `argos target set <nombre>`, `argos target list`,
+  `argos target <nombre> [quest]`.
 - `argos stats`: dashboard de actividad (quests, tokens, tasa de éxito, racha, top agentes).
 - `argos xp`: ranking de experiencia por agente con niveles.
 - `argos theme`: gestión de temas visuales (atlas/vivi/amarant/eiko/auron).

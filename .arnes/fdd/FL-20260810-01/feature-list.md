@@ -21,6 +21,7 @@ independiente y verificable con `argos doctor` + parseo PowerShell.
 | F2 | Temas personalizables (Atlas rojo-negro, Vivi violeta, Amarant bronce) | Baja | S | — | done |
 | F3 | Stats dashboard (tokens por sesión/día/semana, costo aprox, racha) | Media | M | F1 | done |
 | F4 | Publicación en marketplaces (Smithery + skills.sh) | Baja | M | — | blocked-requires-release |
+| F5 | Selector de entorno (target opencode/codex/claude) | Media | M | — | done |
 
 ## Reglas de la lista
 
@@ -35,6 +36,7 @@ independiente y verificable con `argos doctor` + parseo PowerShell.
 - [x] F2 — Temas personalizables (done)
 - [x] F3 — Stats dashboard (done)
 - [ ] F4 — Publicación en marketplaces (blocked-requires-release)
+- [x] F5 — Selector de entorno opencode/codex/claude (done)
 
 ---
 *Memoria: al crear/actualizar, guardar en arnes.db `atlas/quest-history`*
