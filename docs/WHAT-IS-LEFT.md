@@ -62,9 +62,9 @@ Este archivo resume el estado heredado; el plan futuro vive en PLAN-ARNES.md.
 | **FASE 1 — ARNES BRAIN** | arnes.db (SQLite+FTS5) + arnes-memory CLI + skills memoria | Hecho |
 | **FASE 2 — ARNES GRAPH** | Capa de relaciones (edges) + arnes-graph CLI | Hecho |
 | **FASE 3 — ARNES SDD** | Skills arnes-sdd-* propias | Hecho |
-| **FASE 4 — ARNES FDD** | Skills arnes-fdd-* + features | En evolución |
+| **FASE 4 — ARNES FDD** | Skills arnes-fdd-* + features | F1 (XP) done · F2-F4 planeadas |
 | **FASE 5 — ARNES ADR** | Registro de decisiones + skill arnes-adr | Hecho |
-| **FASE 6 — ARGOS CLI + GITHUB** | CLI, modelos, diagnóstico, documentación y publicación | En evolución |
+| **FASE 6 — ARGOS CLI + GITHUB** | CLI, modelos, diagnóstico, documentación y publicación | Publicado en GitHub (privado) |
 
 ### Pendientes heredados (de la versión anterior)
 

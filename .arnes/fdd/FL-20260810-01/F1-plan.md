@@ -3,7 +3,7 @@
 > **Feature ID**: `F1` (referencia a FL-20260810-01)
 > **Fecha**: 2026-08-10
 > **Autor**: Atlas + Sisyphus
-> **Estado**: `planned`
+> **Estado**: `done`
 
 ---
 
