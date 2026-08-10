@@ -20,6 +20,11 @@ Este archivo resume el estado heredado; el plan futuro vive en PLAN-ARNES.md.
 - [x] Memoria propia SQLite/FTS5 y knowledge graph
 - [x] Metodologías propias SDD, FDD y ADR documentadas
 - [x] Documentación pública base, changelog, contribución y troubleshooting de arranque
+- [x] Suite de tests unificada (`npm test`) y CI en GitHub Actions
+- [x] Grafo de relaciones activado con edges reales y test propio
+- [x] Comandos `argos xp`, `argos stats` y `argos theme`
+- [x] Doctor con detección de agentes faltantes por nombre
+- [x] Release v0.1.0 publicado en GitHub
 
 - [x] Estructura SDD completa (proposal, spec, design, tasks)
 - [x] Config base `.arnes/config.json` con plataforma/suscripcion/party
@@ -62,9 +67,9 @@ Este archivo resume el estado heredado; el plan futuro vive en PLAN-ARNES.md.
 | **FASE 1 — ARNES BRAIN** | arnes.db (SQLite+FTS5) + arnes-memory CLI + skills memoria | Hecho |
 | **FASE 2 — ARNES GRAPH** | Capa de relaciones (edges) + arnes-graph CLI | Hecho |
 | **FASE 3 — ARNES SDD** | Skills arnes-sdd-* propias | Hecho |
-| **FASE 4 — ARNES FDD** | Skills arnes-fdd-* + features | F1 (XP) done · F2-F4 planeadas |
+| **FASE 4 — ARNES FDD** | Skills arnes-fdd-* + features | F1 (XP) · F2 (temas) · F3 (stats) done · F4 blocked |
 | **FASE 5 — ARNES ADR** | Registro de decisiones + skill arnes-adr | Hecho |
-| **FASE 6 — ARGOS CLI + GITHUB** | CLI, modelos, diagnóstico, documentación y publicación | Publicado en GitHub (privado) |
+| **FASE 6 — ARGOS CLI + GITHUB** | CLI, modelos, diagnóstico, documentación y publicación | Publicado (release v0.1.0) |
 
 ### Pendientes heredados (de la versión anterior)
 
