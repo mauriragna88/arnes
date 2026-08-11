@@ -152,6 +152,15 @@ Este archivo resume el estado heredado; el plan futuro vive en PLAN-ARNES.md.
 Cuando el usuario diga "continua", leer este bloque + `README.md` y seguir con lo pendiente
 en el orden: prueba real del usuario → ajustes que surjan → F4 marketplace → mejoras FDD.
 
+### IMPORTANTE: registro de uso del usuario
+- `.arnes/quest-ledger.json` y `.arnes/model-assignments.json` se modifican CADA vez que el
+  usuario usa `argos` (quests, tokens, timestamps). **NO revertirlos** (`git checkout --`) ni
+  ignorarlos: son la evidencia de uso para el diagnóstico ("¿usaste argos?" → leer el ledger).
+- La fuente de verdad de memoria es `.arnes/arnes.db` (gitignored): ejecuciones por agente,
+  verdicts de Tywin, evidence packs de Varys, debriefs de Atlas.
+- Al retomar, reportar al usuario qué hizo: nº de quests nuevos, tokens, verdicts (se puede
+  consultar con `argos stats`).
+
 ## Estado del árbol de trabajo
 
 El repositorio puede contener cambios acumulados de sesiones anteriores. Antes de publicar en
