@@ -180,11 +180,12 @@ argos target opencode    # flujo original (16 agentes + modelos por agente)
 ```
 
 - **opencode**: sincroniza los 16 agentes RPG con su modelo propio y abre `opencode --agent atlas-player`.
-- **codex**: despliega la persona Atlas a `~/.codex/AGENTS.md` y abre `codex` (o `codex exec <quest>`).
-- **claude**: despliega la persona Atlas a `~/.claude/CLAUDE.md` y abre `claude` (o `claude -p <quest>`).
+- **codex**: despliega la persona Atlas + roster del party a `~/.codex/AGENTS.md` y abre `codex` (o `codex exec <quest>`).
+- **claude**: despliega la persona Atlas a `~/.claude/CLAUDE.md` + los **16 agentes del party** como subagentes (`~/.claude/agents/*.md`) y abre `claude` (o `claude -p <quest>`).
 
-En los tres casos ARNES aporta personas, agentes y la memoria del proyecto
-(`.arnes/arnes.db`); el modelo lo gestiona cada CLI.
+La memoria del proyecto (`.arnes/arnes.db`, exports JSONL) queda accesible en los tres
+entornos. Los modelos por agente y el motor OMO son capacidades exclusivas de OpenCode
+(formato del CLI); en Codex/Claude el modelo lo gestiona cada CLI.
 
 ### Suite de tests
 

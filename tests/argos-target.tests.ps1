@@ -35,15 +35,22 @@ try {
     $show = (& powershell -NoProfile -ExecutionPolicy Bypass -File $TargetCli show -ConfigDir $work | Out-String)
     Assert-That ($show -match 'Target actual: codex') "show refleja codex -> $show"
 
-    # 4. launch codex -NoLaunch despliega AGENTS.md
+    # 4. launch codex -NoLaunch despliega AGENTS.md con roster
     & powershell -NoProfile -ExecutionPolicy Bypass -File $TargetCli -Target codex -NoLaunch -ConfigDir $work -TargetDir $work | Out-Null
     Assert-That (Test-Path (Join-Path $work 'AGENTS.md')) 'AGENTS.md desplegado'
     $agents = Get-Content (Join-Path $work 'AGENTS.md') -Raw
     Assert-That ($agents -match 'ARNES ARGOS - Atlas') 'AGENTS.md contiene la persona Atlas'
+    Assert-That ($agents -match 'Party ARNES') 'AGENTS.md contiene el roster del party'
 
-    # 5. launch claude -NoLaunch despliega CLAUDE.md
+    # 5. launch claude -NoLaunch despliega CLAUDE.md + party completo de 16
     & powershell -NoProfile -ExecutionPolicy Bypass -File $TargetCli -Target claude -NoLaunch -ConfigDir $work -TargetDir $work | Out-Null
     Assert-That (Test-Path (Join-Path $work 'CLAUDE.md')) 'CLAUDE.md desplegado'
+    $claudeAgents = @(Get-ChildItem (Join-Path $work 'agents\*.md') -ErrorAction SilentlyContinue)
+    Assert-That ($claudeAgents.Count -eq 16) "claude agents = 16 (obtenido $($claudeAgents.Count))"
+    foreach ($ca in $claudeAgents) {
+        $c = Get-Content $ca.FullName -Raw
+        Assert-That ($c -match '^---\r?\nname:') "frontmatter valido en $($ca.Name)"
+    }
 
     # 6. argos.ps1 parsea (dispatch agregado)
     $tokens = $null

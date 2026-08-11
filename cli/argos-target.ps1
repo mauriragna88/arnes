@@ -99,6 +99,80 @@ function Write-AtlasPersona {
     return $true
 }
 
+function Get-AgentDisplayName {
+    param([string]$Path)
+    # Del titulo H1: "# VIVI — Mage (Frontend DPS)" -> "Vivi"
+    $first = (Get-Content $Path -TotalCount 6 | Where-Object { $_ -match '^#' } | Select-Object -First 1)
+    if ($first -and $first -match '^#\s+([^\s\-—–|]+)') {
+        $raw = $Matches[1].Trim()
+        # Capitalizar primera letra, resto en minusculas
+        return ($raw.Substring(0, 1).ToUpper() + $raw.Substring(1).ToLower())
+    }
+    return [System.IO.Path]::GetFileNameWithoutExtension($Path).Replace('.agent', '')
+}
+
+function Get-AgentDescription {
+    param([string]$Path)
+    # Primeras lineas de la blockquote de identidad
+    $desc = @()
+    foreach ($line in (Get-Content $Path -TotalCount 12)) {
+        $t = $line -replace '^>\s*', ''
+        if ($t -and $t -notmatch '^\s*$') { $desc += $t }
+        if ($desc.Count -ge 2) { break }
+    }
+    if ($desc.Count -eq 0) { return 'Agente del party ARNES' }
+    return ($desc -join ' ').Substring(0, [Math]::Min(180, ($desc -join ' ').Length))
+}
+
+function Write-ClaudeParty {
+    # Claude Code: subagentes en ~/.claude/agents/*.md con frontmatter name+description
+    $agentsDir = Join-Path $TargetDir 'agents'
+    New-Item -ItemType Directory -Path $agentsDir -Force | Out-Null
+    $sources = @()
+    $sources += Get-Item (Join-Path $Root 'core\atlas-player.agent.md') -ErrorAction SilentlyContinue
+    $sources += Get-ChildItem (Join-Path $Root 'core\classes\*.agent.md') -ErrorAction SilentlyContinue
+    $sources += Get-ChildItem (Join-Path $Root 'core\auditors\*.agent.md') -ErrorAction SilentlyContinue
+    # El party canonico de 16 NO incluye varys-documentalist (igual que el sync de opencode)
+    $sources = @($sources | Where-Object { $_.Name -notlike 'varys-documentalist*' })
+    $count = 0
+    $used = @()
+    foreach ($src in $sources) {
+        $display = Get-AgentDisplayName $src.FullName
+        # Colision de nombre (ej: Varys vs Varys-Documentalist): usar el id del archivo
+        if ($used -contains $display) {
+            $display = [System.IO.Path]::GetFileNameWithoutExtension($src.Name).Replace('.agent', '')
+        }
+        $used += $display
+        $desc = Get-AgentDescription $src.FullName
+        $body = Get-Content $src.FullName -Raw
+        $front = "---`nname: $display`ndescription: $desc`n---`n`n"
+        $out = Join-Path $agentsDir "$display.md"
+        Set-Content -Path $out -Value ($front + $body) -Encoding UTF8
+        $count++
+    }
+    Write-Host ("  [OK] Party desplegado a Claude: {0} agentes en {1}" -f $count, $agentsDir) -ForegroundColor Green
+    return $true
+}
+
+function Write-CodexBundle {
+    # Codex: AGENTS.md jerarquico con persona Atlas + roster del party (sin subagentes con modelo)
+    $out = Join-Path $TargetDir 'AGENTS.md'
+    $persona = Get-Content $PersonaFile -Raw
+    $roster = @()
+    $roster += Get-ChildItem (Join-Path $Root 'core\classes\*.agent.md') -ErrorAction SilentlyContinue
+    $roster += Get-ChildItem (Join-Path $Root 'core\auditors\*.agent.md') -ErrorAction SilentlyContinue
+    $rosterLines = foreach ($r in $roster) {
+        $display = Get-AgentDisplayName $r.FullName
+        $roleLine = (Get-Content $r.FullName -TotalCount 1) -replace '^#\s+', ''
+        "  - **$display** - $roleLine"
+    }
+    $header = "# ARNES ARGOS - Atlas (entorno generado por 'argos target codex')`n`n"
+    $rosterBlock = "`n## Party ARNES (roles)`n`nSoy el orquestador de este party. Para tareas especializadas invoca el rol adecuado:`n`n" + ($rosterLines -join "`n") + "`n`nLa memoria del proyecto vive en .arnes/ (arnes.db, exports JSONL en .arnes/memory/export/). Consultala antes de decidir.`n`n"
+    Set-Content -Path $out -Value ($header + $persona + $rosterBlock) -Encoding UTF8
+    Write-Host ("  [OK] Entorno Codex desplegado: {0}" -f $out) -ForegroundColor Green
+    return $true
+}
+
 switch ($Command) {
     'show' {
         $current = Get-CurrentTarget
@@ -192,7 +266,7 @@ switch ($Command) {
             }
             'codex' {
                 Write-Host '  [1/2] Desplegando entorno a Codex...' -ForegroundColor Cyan
-                [void](Write-AtlasPersona -Target 'codex')
+                [void](Write-CodexBundle)
                 Write-Host '  [2/2] Abriendo Codex...' -ForegroundColor Cyan
                 if ($NoLaunch) { exit 0 }
                 if (-not (Get-Command codex -ErrorAction SilentlyContinue)) {
@@ -206,9 +280,11 @@ switch ($Command) {
                 }
             }
             'claude' {
-                Write-Host '  [1/2] Desplegando entorno a Claude...' -ForegroundColor Cyan
+                Write-Host '  [1/3] Persona Atlas a CLAUDE.md...' -ForegroundColor Cyan
                 [void](Write-AtlasPersona -Target 'claude')
-                Write-Host '  [2/2] Abriendo Claude...' -ForegroundColor Cyan
+                Write-Host '  [2/3] Desplegando party a Claude agents...' -ForegroundColor Cyan
+                [void](Write-ClaudeParty)
+                Write-Host '  [3/3] Abriendo Claude...' -ForegroundColor Cyan
                 if ($NoLaunch) { exit 0 }
                 if (-not (Get-Command claude -ErrorAction SilentlyContinue)) {
                     Write-Host '  [!] claude no encontrado. Instala: npm install -g @anthropic-ai/claude-code' -ForegroundColor Red
