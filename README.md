@@ -184,9 +184,11 @@ Cómo decide seguir:
 
 Atlas decide **con memoria, no a ciegas**: cada iteración inyecta a su decisión el
 `CONTEXTO DE MEMORIA` — historial del objetivo (qué se hizo, qué verdict, qué quedó
-pendiente). Además, cada agente guarda en `arnes.db` qué entregó (`<agente>/executions/`),
-Tywin guarda sus verdicts, y Atlas un debrief completo (`atlas/debriefs/<quest>`). Así el
-party evita repetir lo hecho y ataca lo pendiente.
+pendiente) **y la bitácora de secuencia** (quién hizo qué y en qué orden). Además, cada
+agente guarda en `arnes.db` qué entregó (`<agente>/executions/`), Tywin sus verdicts,
+**Varys el evidence pack con la secuencia completa** (`varys/evidence-packs/<quest>`) y
+Atlas un debrief (`atlas/debriefs/<quest>`). Así el party evita repetir lo hecho y ataca
+lo pendiente.
 
 El estado se guarda en `.arnes/goal-state.json` (incluye el historial); puedes retomar
 con `-Resume`.

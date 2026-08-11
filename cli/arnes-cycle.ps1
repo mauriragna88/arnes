@@ -245,6 +245,20 @@ if ($atlasFinalR.ok) {
 if (-not (Test-Path $OutDir)) { New-Item -ItemType Directory -Path $OutDir -Force | Out-Null }
 $ts = Get-Date -Format 'yyyyMMdd-HHmmss'
 $questId = "quest-$ts"
+
+# ==== Bitacora de secuencia (Varys): que se hizo y en que orden ====
+$bitacora = @()
+$stepIdx = 0
+foreach ($s in $script:stepLog) {
+    $stepIdx++
+    $status = if ($s.ok) { 'OK' } else { 'OMITIDO' }
+    $short = ([string]$s.reply) -replace "`n", ' '
+    if ($short.Length -gt 120) { $short = $short.Substring(0, 120) }
+    $bitacora += ("  {0}. [{1}] {2} ({3}) - {4}" -f $stepIdx, $s.agent, $s.step, $status, $short)
+}
+$remediation = ''
+if ($tywinR.ok -and $tywinR.reply -match 'REMEDIATION:\s*(.+)') { $remediation = $Matches[1].Trim() }
+$bitacoraText = $bitacora -join "`n"
 $report = @"
 # ARNES CYCLE - Reporte de quest
 **Quest**: $Quest
@@ -267,6 +281,9 @@ $resultsText
 
 ## Verificacion (Tywin)
 $(if ($tywinR.ok) { $tywinR.reply } else { 'sin respuesta' })
+
+## Bitacora de secuencia (Varys) - que se hizo y en que orden
+$bitacoraText
 "@
 $reportPath = Join-Path $OutDir "$questId.md"
 $report | Set-Content -Path $reportPath -Encoding UTF8
@@ -278,6 +295,7 @@ $log = [pscustomobject]@{
     verdict = $verdict
     decision = $decision
     party = $partyList
+    sequence = $bitacoraText
     steps = $script:stepLog
 }
 $log | ConvertTo-Json -Depth 6 | Set-Content -Path (Join-Path $OutDir "$questId.json") -Encoding UTF8
@@ -287,6 +305,8 @@ try {
     if (Test-Path $Mem) {
         & $Mem save -Agent 'bard' -Topic "bard/mejoras/$questId" -Type 'recommendation' -Content "Quest: $Quest | Mejoras: $mejoras" 2>$null
         & $Mem save -Agent 'tywin' -Topic "tywin/verdicts/$questId" -Type 'verdict' -Content "Quest: $Quest | Verdict: $verdict | Decision: $decision" 2>$null
+        # Varys: bitacora de secuencia - quien hizo que y en que orden (la linea de tiempo del quest)
+        & $Mem save -Agent 'varys' -Topic "varys/evidence-packs/$questId" -Type 'evidence' -Content "Quest: $Quest | Verdict: $verdict | Decision: $decision`n$bitacoraText" 2>$null
         # Debrief completo: que se hizo, que falta (la fuente de verdad para la proxima decision de Atlas)
         $debrief = "Quest: $Quest | Verdict: $verdict | Decision: $decision"
         if ($decision -eq 'RETOQUE' -and $tywinR.ok -and $tywinR.reply -match 'REMEDIATION:\s*(.+)') {
@@ -319,10 +339,6 @@ try {
 
 # === Salida JSON para el driver de objetivo autonomo (arnes-goal.ps1) ===
 if ($EmitJson) {
-    $remediation = ''
-    if ($tywinR.ok -and $tywinR.reply -match 'REMEDIATION:\s*(.+)') {
-        $remediation = $Matches[1].Trim()
-    }
     [pscustomobject]@{
         ok          = $true
         quest_id    = $questId
@@ -331,6 +347,7 @@ if ($EmitJson) {
         decision    = $decision
         remediation = $remediation
         plan        = $plan
+        sequence    = $bitacoraText
         report      = $reportPath
         goal        = $Goal
     } | ConvertTo-Json -Depth 4 -Compress | Write-Output

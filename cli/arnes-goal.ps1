@@ -80,7 +80,19 @@ function Build-MemoryContext {
         $pend = if ($h.remediation) { " | Pendiente: $($h.remediation)" } else { '' }
         "  Iteracion {0}: {1} | Verdict {2} | Decision {3}{4}" -f $h.iteration, $h.quest, $h.verdict, $h.decision, $pend
     }
-    return "Historial del objetivo '$Goal':`n" + ($lines -join "`n")
+    # Bitacora de la ultima iteracion: que se hizo y en que orden
+    $lastSeq = @($history | Select-Object -Last 1)
+    $seqLines = @()
+    if ($lastSeq.Count -gt 0 -and $lastSeq[0].sequence) {
+        foreach ($line in (([string]$lastSeq[0].sequence) -split "`n")) {
+            if ($line -match '^\s*\d+\.') { $seqLines += "      $line" }
+        }
+    }
+    $ctx = "Historial del objetivo '$Goal':`n" + ($lines -join "`n")
+    if ($seqLines.Count -gt 0) {
+        $ctx += "`n  Secuencia de la ultima iteracion (quien hizo que):`n" + ($seqLines -join "`n")
+    }
+    return $ctx
 }
 
 $startedAt = (Get-Date).ToString('o')
@@ -130,6 +142,7 @@ while ($iteration -le $MaxIterations -and -not $done) {
         verdict     = $cycle.verdict
         decision    = $cycle.decision
         remediation = $cycle.remediation
+        sequence    = $cycle.sequence
     }
     Write-Host ("`n  >>> Verdict Tywin: {0} | Decision Atlas: {1}" -f $cycle.verdict, $cycle.decision) -ForegroundColor Green
 

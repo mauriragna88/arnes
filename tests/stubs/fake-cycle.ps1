@@ -40,6 +40,7 @@ if ($alwaysFail -or $count -eq 1) {
         decision    = 'RETOQUE'
         remediation = 'falta la API de login con validacion Zod'
         plan        = "Plan stub ${count}: login, validacion, RLS"
+        sequence    = "  1. [atlas] ATLAS - ORQUESTA (OK) - party: vivi, ansem`n  2. [vivi] PARTY - VIVI (OK) - login UI" + $count
         report      = 'stub-report.md'
         goal        = $Goal
     }
@@ -52,6 +53,7 @@ if ($alwaysFail -or $count -eq 1) {
         decision    = 'GOAL_COMPLETE'
         remediation = ''
         plan        = "Plan stub ${count}: todo entregado"
+        sequence    = "  1. [atlas] ATLAS - ORQUESTA (OK) - party: vivi, ansem`n  2. [ansem] PARTY - ANSEM (OK) - API login" + $count
         report      = 'stub-report.md'
         goal        = $Goal
     }

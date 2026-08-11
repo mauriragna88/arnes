@@ -39,6 +39,7 @@ try {
         Assert-That ($state.next_prompt -match 'login') "el siguiente prompt heredo la remediation ('login')"
         Assert-That ($state.history.Count -eq 2) "historial con 2 entradas (obtenido $($state.history.Count))"
         Assert-That ($state.history[0].remediation -match 'login') "historial[0] guarda la remediation"
+        Assert-That ([string]$state.history[0].sequence -match '\[atlas\]') "historial[0] guarda la secuencia (bitacora)"
 
         # ==== 2. Stop flag detiene en la siguiente iteracion ====
         Remove-Item (Join-Path $workArnes 'stub-count.txt') -Force -ErrorAction SilentlyContinue
@@ -80,6 +81,8 @@ try {
         Assert-That ($cycle -match '\[string\]\$MemoryContext') 'arnes-cycle: param MemoryContext presente'
         Assert-That ($cycle -match 'CONTEXTO DE MEMORIA') 'arnes-cycle: inyecta el contexto en la decision de Atlas'
         Assert-That ($cycle -match 'atlas/debriefs/') 'arnes-cycle: guarda debrief a memoria'
+        Assert-That ($cycle -match 'varys/evidence-packs/') 'arnes-cycle: Varys guarda la bitacora de secuencia'
+        Assert-That ($cycle -match 'Bitacora de secuencia') 'arnes-cycle: compila la bitacora ordenada'
 
         Write-Output 'PASS argos-goal: autowork (remediation->next prompt, stop, limite, resume)'
         exit 0
