@@ -152,6 +152,18 @@ Este archivo resume el estado heredado; el plan futuro vive en PLAN-ARNES.md.
 Cuando el usuario diga "continua", leer este bloque + `README.md` y seguir con lo pendiente
 en el orden: prueba real del usuario → ajustes que surjan → F4 marketplace → mejoras FDD.
 
+### PRÓXIMO TRABAJO DE CÓDIGO (cuando el usuario diga "seguimos") — en este orden
+1. **Aplicar el tema elegido a las UI reales** — `argos theme set X` hoy solo persiste en
+   `config.json`; falta que las UI (argos-chat, argos-xp, argos-stats, argos-status, evenatan-ui)
+   usen el color de acento del tema activo.
+2. **Costo aprox. USD en stats** — `argos stats` hoy muestra tokens; falta estimar USD por
+   proveedor/precio (catálogo de precios en `cli/model-catalog.ps1` o tabla local).
+3. **Desbloqueo de skills por nivel de XP** — hoy XP solo muestra niveles; falta que cada nivel
+   desbloquee skills (mapa nivel→skill en config o `core/skills`).
+4. **Limpiar el legado** — `activate.ps1` / `evenatan-ui.ps1` / `activate.sh` están marcados
+   deprecados; decidir si se borran (verificar referencias en install/atlas/argos primero) o se
+   mueven a un `legacy/` documentado.
+
 ### IMPORTANTE: registro de uso del usuario
 - `.arnes/quest-ledger.json` y `.arnes/model-assignments.json` se modifican CADA vez que el
   usuario usa `argos` (quests, tokens, timestamps). **NO revertirlos** (`git checkout --`) ni
