@@ -123,6 +123,35 @@ Este archivo resume el estado heredado; el plan futuro vive en PLAN-ARNES.md.
 - [`CONTRIBUTING.md`](../CONTRIBUTING.md) — contribución y validación.
 - [`ARGOS-STARTUP.md`](./ARGOS-STARTUP.md) — diagnóstico del arranque.
 
+## SIGUIENTE SESIÓN (guardado 2026-08-10 — para retomar con "continua")
+
+**Estado: todo commiteado y pusheado (master, árbol limpio).** Último commit: `f3ebaa6`.
+
+### Ya implementado hoy (no rehacer)
+- `argos target` (selector opencode/codex/claude con party completo en Claude y roster en Codex).
+- `argos goal` / `/autowork` (modo autónomo por objetivo con memoria: remediation → siguiente prompt).
+- `argos xp`, `argos stats`, `argos theme`.
+- Varys guarda la bitácora de secuencia (`varys/evidence-packs/<quest>`); Atlas decide con CONTEXTO DE MEMORIA.
+- Suite unificada `npm test` + CI + grafo activado + release v0.1.0 + paquete npm preparado.
+
+### Pendiente PARA EL USUARIO (externo, no es código)
+1. **Probar la sesión real**: `argos quest "<algo>"`, `argos goal "<objetivo>" -MaxIterations 3`,
+   `argos target codex` y `argos target claude` — es el examen de fuego del ciclo con APIs reales.
+2. **Rotar la API key de B.AI** que estaba en el backup local eliminado.
+3. **Publicar en npm**: `npm adduser` (login) → `npm publish` (el paquete ya está listo, v0.1.0).
+4. **F4 del FDD**: publicar Atlas en Smithery y skills.sh (requiere el npm publish antes).
+
+### Pendiente DE CÓDIGO si el usuario lo pide
+- F2 temas: aplicar el tema elegido (`argos theme set X`) a las UI reales (hoy solo persiste).
+- F3 stats: costo aproximado USD por sesión/día.
+- F1: desbloqueo de skills por nivel de XP (hoy solo muestra niveles).
+- Limpieza legado: `activate.ps1` / `evenatan-ui.ps1` (marcado deprecado, no borrado).
+- Si la prueba real falla en la cadena quest/party: depurar con el stub `tests/stubs/fake-cycle.ps1`.
+
+### Regla de retoma
+Cuando el usuario diga "continua", leer este bloque + `README.md` y seguir con lo pendiente
+en el orden: prueba real del usuario → ajustes que surjan → F4 marketplace → mejoras FDD.
+
 ## Estado del árbol de trabajo
 
 El repositorio puede contener cambios acumulados de sesiones anteriores. Antes de publicar en
