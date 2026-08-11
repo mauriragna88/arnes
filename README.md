@@ -166,7 +166,23 @@ argos xp vivi    # nivel de un agente específico
 argos theme list # temas visuales disponibles
 argos theme set vivi  # cambia el tema (atlas/vivi/amarant/eiko/auron)
 argos test-model # prueba un modelo con el motor nativo
+argos goal "crea la plataforma escolar completa" -MaxIterations 10   # modo autónomo por objetivo
 ```
+
+### Modo autónomo por objetivo (`argos goal` / `/autowork`)
+
+Atlas NO trabaja en automático por defecto. El modo se activa solo cuando lo pides:
+
+- `argos goal "<objetivo>" [-MaxIterations N] [-Resume]` — persigue el objetivo encadenando ciclos.
+- En el chat: `/autowork <objetivo>` (y `/autowork stop` para detener al terminar la iteración).
+- Por lenguaje natural: *"atlas activa modo automático <objetivo>"*.
+
+Cómo decide seguir:
+- **FAIL / RETOQUE** → la *remediation* de Tywin se convierte en el siguiente prompt.
+- **PASS** → Atlas genera el siguiente paso incremental hacia el objetivo.
+- Termina con `GOAL_COMPLETE`, al llegar a `MaxIterations`, o con Ctrl+C.
+
+El estado se guarda en `.arnes/goal-state.json`; puedes retomar con `-Resume`.
 
 ### Elegir el entorno de trabajo (OpenCode / Codex / Claude)
 

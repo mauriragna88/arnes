@@ -22,6 +22,7 @@ independiente y verificable con `argos doctor` + parseo PowerShell.
 | F3 | Stats dashboard (tokens por sesión/día/semana, costo aprox, racha) | Media | M | F1 | done |
 | F4 | Publicación en marketplaces (Smithery + skills.sh) | Baja | M | — | blocked-requires-release |
 | F5 | Selector de entorno (target opencode/codex/claude) | Media | M | — | done |
+| F6 | Modo autónomo por objetivo (argos goal / autowork) | Media | M | F1 | done |
 
 ## Reglas de la lista
 
@@ -37,6 +38,7 @@ independiente y verificable con `argos doctor` + parseo PowerShell.
 - [x] F3 — Stats dashboard (done)
 - [ ] F4 — Publicación en marketplaces (blocked-requires-release)
 - [x] F5 — Selector de entorno opencode/codex/claude (done)
+- [x] F6 — Modo autónomo por objetivo (done)
 
 ---
 *Memoria: al crear/actualizar, guardar en arnes.db `atlas/quest-history`*

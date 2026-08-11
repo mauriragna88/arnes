@@ -22,7 +22,7 @@ argos init               -> inicializar proyecto
 [CmdletBinding()]
 param(
     [Parameter(Position = 0)]
-    [ValidateSet('', 'menu', 'init', 'connect', 'connect-agent', 'configure', 'chat', 'status', 'stats', 'models', 'model', 'memory', 'recommend', 'mode', 'doctor', 'verify', 'test-model', 'quest', 'party', 'xp', 'theme', 'code', 'opencode', 'target')]
+    [ValidateSet('', 'menu', 'init', 'connect', 'connect-agent', 'configure', 'chat', 'status', 'stats', 'models', 'model', 'memory', 'recommend', 'mode', 'doctor', 'verify', 'test-model', 'quest', 'party', 'xp', 'theme', 'code', 'opencode', 'target', 'goal')]
     [string]$Command = '',
 
     [Parameter(Position = 1)]
@@ -500,6 +500,37 @@ switch ($Command) {
             Write-Host '  Ej:  argos quest "haz un login form con Zod y RLS"' -ForegroundColor Cyan
         } else {
             & (Join-Path $ScriptDir 'arnes-cycle.ps1') -Quest $q
+        }
+    }
+    'goal' {
+        # argos goal "<objetivo>" [-MaxIterations N] [-Resume]
+        $parts = @($Model) + @($Args) | Where-Object { $_ }
+        $goal = ''
+        $maxIter = 8
+        $resume = $false
+        $i = 0
+        while ($i -lt $parts.Count) {
+            $p = [string]$parts[$i]
+            if ($p -eq '-MaxIterations' -and ($i + 1) -lt $parts.Count) {
+                $maxIter = [int]$parts[$i + 1]; $i += 2
+            } elseif ($p -eq '-Resume') {
+                $resume = $true; $i++
+            } else {
+                $goal = (($parts[$i..($parts.Count - 1)] | ForEach-Object { [string]$_ }) -join ' ')
+                $i = $parts.Count
+            }
+        }
+        if (-not $goal) {
+            Write-Host '  Uso: argos goal "<objetivo global>" [-MaxIterations N] [-Resume]' -ForegroundColor Yellow
+            Write-Host '  Ej:  argos goal "crea la plataforma escolar completa" -MaxIterations 10' -ForegroundColor Cyan
+            Write-Host '  (modo autonomo: encadena ciclos hasta lograr el objetivo; la retroalimentacion' -ForegroundColor DarkGray
+            Write-Host '   genera el siguiente prompt. Detener: Ctrl+C. Reanudar: -Resume)' -ForegroundColor DarkGray
+        } else {
+            if ($resume) {
+                & (Join-Path $ScriptDir 'arnes-goal.ps1') -Goal $goal -MaxIterations $maxIter -Resume
+            } else {
+                & (Join-Path $ScriptDir 'arnes-goal.ps1') -Goal $goal -MaxIterations $maxIter
+            }
         }
     }
     'party' {

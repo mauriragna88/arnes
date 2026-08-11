@@ -262,6 +262,24 @@ function Show-InteractiveChat {
                 Show-Party
                 continue
             }
+            '^\s*/autowork\s+stop\s*$' {
+                $stopFlag = Join-Path (Get-Location) '.arnes\autowork-stop'
+                New-Item -ItemType Directory -Path (Split-Path $stopFlag) -Force -ErrorAction SilentlyContinue | Out-Null
+                Set-Content -Path $stopFlag -Value 'stop' -Encoding UTF8
+                Write-Host '  ▸ [STOP] Modo autonomo se detendra al terminar la iteracion actual.' -ForegroundColor Yellow
+                continue
+            }
+            '^\s*/autowork(?:\s+(.+))?$' {
+                $goal = if ($Matches[1]) { $Matches[1].Trim() } else { '' }
+                if (-not $goal) {
+                    Write-Host '  Uso: /autowork <objetivo global>  (modo autonomo hasta lograrlo)' -ForegroundColor Yellow
+                    Write-Host '       /autowork stop               (detener al terminar la iteracion)' -ForegroundColor Yellow
+                    Write-Host '  Ej: /autowork crea la plataforma escolar completa con login, calificaciones y avisos' -ForegroundColor Cyan
+                } else {
+                    & (Join-Path $PSScriptRoot 'arnes-goal.ps1') -Goal $goal
+                }
+                continue
+            }
             '^\s*/memory\s*$' {
                 $mem = Join-Path $PSScriptRoot 'arnes-memory.ps1'
                 & $mem stats
@@ -284,6 +302,22 @@ function Show-InteractiveChat {
             }
             default {
                 if ([string]::IsNullOrWhiteSpace($input)) { continue }
+                # === Disparador de modo autonomo por lenguaje natural ===
+                # "atlas activa modo automatico <objetivo>" / "pon modo auto: <objetivo>"
+                $autoMatch = [regex]::Match($input, '(?i)(activa|inicia|pon|entra).*(modo auto(m[aá]tico)?|modo aut[oó]nomo|autowork)\s*[:\-]?\s*(.*)$')
+                if ($autoMatch.Success) {
+                    $autoGoal = $autoMatch.Groups[3].Value.Trim()
+                    if (-not $autoGoal) {
+                        $autoGoal = Read-Input '  Atlas: dame el OBJETIVO del modo autonomo: '
+                    }
+                    if ($autoGoal) {
+                        Write-Host '  ▸ [AUTOWORK] Modo autonomo activado por solicitud.' -ForegroundColor DarkRed
+                        & (Join-Path $PSScriptRoot 'arnes-goal.ps1') -Goal $autoGoal
+                    } else {
+                        Write-Host '  Atlas: no recibí el objetivo. Usa /autowork <objetivo>.' -ForegroundColor Yellow
+                    }
+                    continue
+                }
                 Invoke-ArgoQuest -Message $input
                 # === Interactividad: cuestionario paso a paso o lista de opciones ===
                 Show-Interactive

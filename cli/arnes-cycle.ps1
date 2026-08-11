@@ -22,7 +22,11 @@ param(
     [Parameter(Mandatory = $true)]
     [string]$Quest,
 
-    [string]$OutDir = ''
+    [string]$OutDir = '',
+
+    # Modo objetivo autonomo: arnes-goal.ps1 encadena ciclos con estos flags
+    [string]$Goal = '',
+    [switch]$EmitJson
 )
 
 $ErrorActionPreference = 'Stop'
@@ -205,8 +209,15 @@ if ($tywinR.ok) {
 
 # ============ 6. ATLAS: autoriza ============
 $atlasFinalMsg = "Quest: $Quest`n`nPlan:`n$plan`n`nVerdict de Tywin: $verdict`n`nDecision: responde 'DECISION: FINALIZAR' si el trabajo cumple, o 'DECISION: RETOQUE: <que falta>' si hay que ajustar."
+if ($Goal) {
+    $atlasFinalMsg += "`n`nObjetivo GLOBAL: '$Goal'. Si con lo entregado el objetivo global YA esta logrado, responde 'DECISION: GOAL_COMPLETE' en vez de FINALIZAR."
+}
 $atlasFinalR = Run-Step 'atlas' 'ATLAS - AUTORIZA' $atlasSystem $atlasFinalMsg 3000
-if ($atlasFinalR.ok -and $atlasFinalR.reply -match 'DECISION:\s*FINALIZAR') { $decision = 'FINALIZAR' }
+if ($atlasFinalR.ok) {
+    if ($atlasFinalR.reply -match 'DECISION:\s*FINALIZAR') { $decision = 'FINALIZAR' }
+    elseif ($atlasFinalR.reply -match 'DECISION:\s*GOAL_COMPLETE') { $decision = 'GOAL_COMPLETE' }
+    elseif ($atlasFinalR.reply -match 'DECISION:\s*RETOQUE:\s*(.+)') { $decision = 'RETOQUE' }
+}
 
 # ============ Reporte + memoria ============
 if (-not (Test-Path $OutDir)) { New-Item -ItemType Directory -Path $OutDir -Force | Out-Null }
@@ -270,7 +281,26 @@ Write-Host ''
 try {
     $memCli = Join-Path $PSScriptRoot 'arnes-memory.ps1'
     if (Test-Path $memCli) {
-        $next = if ($decision -eq 'RETOQUE') { "Retomar quest por RETOQUE de Tywin: $Quest" } else { 'Siguiente quest del backlog' }
+        $next = if ($decision -eq 'RETOQUE') { "Retomar quest por RETOQUE de Tywin: $Quest" } elseif ($decision -eq 'GOAL_COMPLETE') { 'Objetivo global logrado' } else { 'Siguiente quest del backlog' }
         & $memCli checkpoint -Create -QuestId $questId -Agent 'atlas' -Goal $Quest -Phase 'cycle-complete' -Completed $questId -Pending $(if ($decision -eq 'RETOQUE') { @('retoque pendiente') } else { @() }) -Decisions @() -Skill '' -NextAction $next -Quiet 2>$null | Out-Null
     }
 } catch {}
+
+# === Salida JSON para el driver de objetivo autonomo (arnes-goal.ps1) ===
+if ($EmitJson) {
+    $remediation = ''
+    if ($tywinR.ok -and $tywinR.reply -match 'REMEDIATION:\s*(.+)') {
+        $remediation = $Matches[1].Trim()
+    }
+    [pscustomobject]@{
+        ok          = $true
+        quest_id    = $questId
+        quest       = $Quest
+        verdict     = $verdict
+        decision    = $decision
+        remediation = $remediation
+        plan        = $plan
+        report      = $reportPath
+        goal        = $Goal
+    } | ConvertTo-Json -Depth 4 -Compress | Write-Output
+}

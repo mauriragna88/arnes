@@ -6,6 +6,11 @@ Todos los cambios relevantes de ARNES ARGOS se registran en este archivo.
 
 ### Añadido
 
+- **Modo autónomo por objetivo** (`argos goal <objetivo>` / `/autowork <objetivo>` / "atlas activa
+  modo automático <objetivo>"): encadena ciclos completos hasta lograr el objetivo. FAIL/RETOQUE →
+  la remediation de Tywin genera el siguiente prompt; PASS → siguiente paso incremental; termina con
+  GOAL_COMPLETE, límite de iteraciones o `/autowork stop`/Ctrl+C. Estado persistente en
+  `.arnes/goal-state.json` con reanudación (`-Resume`).
 - `argos target`: selector de entorno de trabajo — abre OpenCode, Codex o Claude con el
   entorno ARNES cargado (personas/agentes/memoria). Default persistido en
   `~/.config/arnes/target.json`; `argos target set <nombre>`, `argos target list`,
