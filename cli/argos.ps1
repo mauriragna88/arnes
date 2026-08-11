@@ -581,9 +581,9 @@ switch ($Command) {
             if (-not (Get-AvailableModels)) { Show-RagnarokGuide }
             Write-Host '  ▸ Ahora configura que modelo usa cada agente:' -ForegroundColor Cyan
             Show-ConfigureModels
-            Write-Host '  ▸ Listo! Abriendo OpenCode con tu entorno ARNES...' -ForegroundColor Green
+            Write-Host '  ▸ Listo! Abriendo tu entorno ARNES...' -ForegroundColor Green
             Start-Sleep -Seconds 1
-            & (Join-Path $ScriptDir 'argos-opencode.ps1') -Quest $questArg
+            & (Join-Path $ScriptDir 'argos-target.ps1') -Target auto -Quest $questArg
         } elseif (-not $state.has_connections -or -not $state.has_models) {
             Write-Host '  ▸ Te faltan conexiones o configuracion de modelos.' -ForegroundColor Yellow
             Write-Host '  ▸ Vamos a completar la configuracion inicial:' -ForegroundColor Cyan
@@ -594,12 +594,12 @@ switch ($Command) {
             if (-not $state.has_models) {
                 Show-ConfigureModels
             }
-            Write-Host '  ▸ Listo! Abriendo OpenCode con tu entorno ARNES...' -ForegroundColor Green
+            Write-Host '  ▸ Listo! Abriendo tu entorno ARNES...' -ForegroundColor Green
             Start-Sleep -Seconds 1
-            & (Join-Path $ScriptDir 'argos-opencode.ps1') -Quest $questArg
+            & (Join-Path $ScriptDir 'argos-target.ps1') -Target auto -Quest $questArg
         } else {
-            # Entorno listo: abrir OpenCode directo con Atlas (fusion completa)
-            & (Join-Path $ScriptDir 'argos-opencode.ps1') -Quest $questArg
+            # Entorno listo: abrir el target configurado (default) o mostrar selector
+            & (Join-Path $ScriptDir 'argos-target.ps1') -Target auto -Quest $questArg
         }
     }
 }
