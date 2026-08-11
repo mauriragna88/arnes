@@ -182,7 +182,14 @@ Cómo decide seguir:
 - **PASS** → Atlas genera el siguiente paso incremental hacia el objetivo.
 - Termina con `GOAL_COMPLETE`, al llegar a `MaxIterations`, o con Ctrl+C.
 
-El estado se guarda en `.arnes/goal-state.json`; puedes retomar con `-Resume`.
+Atlas decide **con memoria, no a ciegas**: cada iteración inyecta a su decisión el
+`CONTEXTO DE MEMORIA` — historial del objetivo (qué se hizo, qué verdict, qué quedó
+pendiente). Además, cada agente guarda en `arnes.db` qué entregó (`<agente>/executions/`),
+Tywin guarda sus verdicts, y Atlas un debrief completo (`atlas/debriefs/<quest>`). Así el
+party evita repetir lo hecho y ataca lo pendiente.
+
+El estado se guarda en `.arnes/goal-state.json` (incluye el historial); puedes retomar
+con `-Resume`.
 
 ### Elegir el entorno de trabajo (OpenCode / Codex / Claude)
 

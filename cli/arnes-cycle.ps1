@@ -26,7 +26,11 @@ param(
 
     # Modo objetivo autonomo: arnes-goal.ps1 encadena ciclos con estos flags
     [string]$Goal = '',
-    [switch]$EmitJson
+    [switch]$EmitJson,
+
+    # Contexto de memoria: historial de iteraciones previas del objetivo.
+    # Atlas lo usa para decidir el party/plan y para autorizar (FINALIZAR/RETOQUE/GOAL_COMPLETE).
+    [string]$MemoryContext = ''
 )
 
 $ErrorActionPreference = 'Stop'
@@ -143,6 +147,9 @@ if ($missing.Count -gt 0) {
 $atlasSystem = (Get-AgentPrompt 'atlas')
 if (-not $atlasSystem) { $atlasSystem = 'Eres Atlas, orquestador de un harness RPG. Nunca codeas: planeas, delega y autorizas.' }
 $atlasMsg = "Quest del usuario: $Quest`n`nDecide el PARTY (agentes especialistas) y el plan general.`nFormato EXACTO:`nPARTY: nombre1, nombre2, nombre3`nPLAN: <resumen del plan en 2-3 lineas>`nElige el party de esta lista: vivi, ansem, kuja, eiko, amarant, eremez, auron, bran, quina, varys, tywin, sam, bard, tidus, ragnarok"
+if ($MemoryContext) {
+    $atlasMsg += "`n`nCONTEXTO DE MEMORIA (sesiones/iteraciones previas del objetivo):`n$MemoryContext`n`nUsa este contexto para decidir el party y el plan: evita repetir lo ya hecho y ataca lo pendiente."
+}
 $atlasR = Run-Step 'atlas' 'ATLAS - ORQUESTA' $atlasSystem $atlasMsg 4000
 if ($atlasR.ok) {
     $m = [regex]::Match($atlasR.reply, 'PARTY:\s*(.+)')
@@ -187,13 +194,25 @@ $roleHint = @{
     'ragnarok' = 'Compras: herramientas y proveedores.'
 }
 $i = 1
+$memberSummaries = @()
 foreach ($member in $members) {
     $persona = (Get-AgentPrompt $member)
     $hint = if ($roleHint.ContainsKey($member)) { $roleHint[$member] } else { 'Ejecuta tu parte del plan.' }
     $sys = if ($persona) { $persona + "`n`nTu rol en este quest: $hint" } else { "Eres $member. $hint" }
     $msg = "Quest: $Quest`n`nPlan tecnico (Amarant):`n$plan`n`nEjecuta TU parte. Entrega un resultado concreto y accionable."
     $r = Run-Step $member ("PARTY - $($member.ToUpper())") $sys $msg 4000
-    if ($r.ok) { $partyResults += $r.reply }
+    if ($r.ok) {
+        $partyResults += $r.reply
+        # Memoria del agente: que hizo y que dejo pendiente (para futuras decisiones de Atlas)
+        $summary = ([string]$r.reply) -replace "`n", ' '
+        if ($summary.Length -gt 200) { $summary = $summary.Substring(0, 200) }
+        $memberSummaries += "  - ${member}: $summary"
+        try {
+            if (Test-Path $Mem) {
+                & $Mem save -Agent $member -Topic "${member}/executions/$questId" -Type 'execution' -Content "Quest: $Quest | Entrego: $summary" 2>$null
+            }
+        } catch { }
+    }
     $i++
 }
 
@@ -209,6 +228,9 @@ if ($tywinR.ok) {
 
 # ============ 6. ATLAS: autoriza ============
 $atlasFinalMsg = "Quest: $Quest`n`nPlan:`n$plan`n`nVerdict de Tywin: $verdict`n`nDecision: responde 'DECISION: FINALIZAR' si el trabajo cumple, o 'DECISION: RETOQUE: <que falta>' si hay que ajustar."
+if ($MemoryContext) {
+    $atlasFinalMsg += "`n`nCONTEXTO DE MEMORIA (historial del objetivo):`n$MemoryContext`n`nEvalua si lo entregado en ESTA iteracion + lo previo cubren el objetivo, o si aun falta trabajo."
+}
 if ($Goal) {
     $atlasFinalMsg += "`n`nObjetivo GLOBAL: '$Goal'. Si con lo entregado el objetivo global YA esta logrado, responde 'DECISION: GOAL_COMPLETE' en vez de FINALIZAR."
 }
@@ -265,6 +287,15 @@ try {
     if (Test-Path $Mem) {
         & $Mem save -Agent 'bard' -Topic "bard/mejoras/$questId" -Type 'recommendation' -Content "Quest: $Quest | Mejoras: $mejoras" 2>$null
         & $Mem save -Agent 'tywin' -Topic "tywin/verdicts/$questId" -Type 'verdict' -Content "Quest: $Quest | Verdict: $verdict | Decision: $decision" 2>$null
+        # Debrief completo: que se hizo, que falta (la fuente de verdad para la proxima decision de Atlas)
+        $debrief = "Quest: $Quest | Verdict: $verdict | Decision: $decision"
+        if ($decision -eq 'RETOQUE' -and $tywinR.ok -and $tywinR.reply -match 'REMEDIATION:\s*(.+)') {
+            $debrief += " | PENDIENTE: " + $Matches[1].Trim()
+        }
+        if ($memberSummaries.Count -gt 0) {
+            $debrief += "`nAgentes:`n" + ($memberSummaries -join "`n")
+        }
+        & $Mem save -Agent 'atlas' -Topic "atlas/debriefs/$questId" -Type 'debrief' -Content $debrief 2>$null
     }
 } catch {}
 

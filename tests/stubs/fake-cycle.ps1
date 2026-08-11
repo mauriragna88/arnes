@@ -15,7 +15,8 @@ param(
     [string]$Quest,
     [string]$Goal = '',
     [switch]$EmitJson,
-    [string]$OutDir = ''
+    [string]$OutDir = '',
+    [string]$MemoryContext = ''
 )
 
 $ErrorActionPreference = 'Stop'

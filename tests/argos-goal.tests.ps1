@@ -37,6 +37,8 @@ try {
         Assert-That ($state.last_decision -eq 'GOAL_COMPLETE') "decision final GOAL_COMPLETE"
         Assert-That ($state.iteration -eq 2) "2 iteraciones (obtenido $($state.iteration))"
         Assert-That ($state.next_prompt -match 'login') "el siguiente prompt heredo la remediation ('login')"
+        Assert-That ($state.history.Count -eq 2) "historial con 2 entradas (obtenido $($state.history.Count))"
+        Assert-That ($state.history[0].remediation -match 'login') "historial[0] guarda la remediation"
 
         # ==== 2. Stop flag detiene en la siguiente iteracion ====
         Remove-Item (Join-Path $workArnes 'stub-count.txt') -Force -ErrorAction SilentlyContinue
@@ -70,11 +72,14 @@ try {
         $state = Get-GoalState
         Assert-That ($state.iteration -ge 3) "resume continua desde iteracion 3+ (obtenido $($state.iteration))"
 
-        # ==== 5. arnes-cycle mantiene el contrato Goal/EmitJson ====
+        # ==== 5. arnes-cycle mantiene el contrato Goal/EmitJson/MemoryContext ====
         $cycle = Get-Content (Join-Path $Root 'cli\arnes-cycle.ps1') -Raw
         Assert-That ($cycle -match '\[string\]\$Goal') 'arnes-cycle: param Goal presente'
         Assert-That ($cycle -match '\[switch\]\$EmitJson') 'arnes-cycle: param EmitJson presente'
         Assert-That ($cycle -match 'GOAL_COMPLETE') 'arnes-cycle: detecta GOAL_COMPLETE'
+        Assert-That ($cycle -match '\[string\]\$MemoryContext') 'arnes-cycle: param MemoryContext presente'
+        Assert-That ($cycle -match 'CONTEXTO DE MEMORIA') 'arnes-cycle: inyecta el contexto en la decision de Atlas'
+        Assert-That ($cycle -match 'atlas/debriefs/') 'arnes-cycle: guarda debrief a memoria'
 
         Write-Output 'PASS argos-goal: autowork (remediation->next prompt, stop, limite, resume)'
         exit 0

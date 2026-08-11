@@ -42,12 +42,14 @@ $StopFlag = Join-Path $ArnesDir 'autowork-stop'
 # ==== Estado persistente (sobrevive restarts / resume) ====
 $iteration = 1
 $nextPrompt = $Goal
+$history = @()
 if ($Resume -and (Test-Path $GoalStateFile)) {
     try {
         $prev = Get-Content $GoalStateFile -Raw | ConvertFrom-Json
         if ($prev.goal -eq $Goal -and $prev.status -eq 'running') {
             $iteration = [int]$prev.iteration + 1
             $nextPrompt = [string]$prev.next_prompt
+            if ($prev.history) { $history = @($prev.history) }
             Write-Host ("  -> Reanudando desde iteracion {0}" -f $iteration) -ForegroundColor Yellow
         }
     } catch { }
@@ -64,9 +66,21 @@ function Save-GoalState {
         next_prompt    = $NextPrompt
         last_verdict   = $LastVerdict
         last_decision  = $LastDecision
+        history        = $history
         started_at     = $startedAt
         updated_at     = (Get-Date).ToString('o')
-    } | ConvertTo-Json -Depth 4 | Set-Content -Path $GoalStateFile -Encoding UTF8
+    } | ConvertTo-Json -Depth 6 | Set-Content -Path $GoalStateFile -Encoding UTF8
+}
+
+# ==== Contexto de memoria: historial compacto para la decision de Atlas ====
+function Build-MemoryContext {
+    if ($history.Count -eq 0) { return '' }
+    $last = @($history | Select-Object -Last 3)
+    $lines = foreach ($h in $last) {
+        $pend = if ($h.remediation) { " | Pendiente: $($h.remediation)" } else { '' }
+        "  Iteracion {0}: {1} | Verdict {2} | Decision {3}{4}" -f $h.iteration, $h.quest, $h.verdict, $h.decision, $pend
+    }
+    return "Historial del objetivo '$Goal':`n" + ($lines -join "`n")
 }
 
 $startedAt = (Get-Date).ToString('o')
@@ -97,7 +111,8 @@ while ($iteration -le $MaxIterations -and -not $done) {
     Write-Host ''
 
     # Ejecutar un ciclo completo y capturar su JSON
-    $raw = & $CycleCommand -Quest $nextPrompt -Goal $Goal -EmitJson -OutDir $OutDir 2>$null | Select-Object -Last 1
+    $memCtx = Build-MemoryContext
+    $raw = & $CycleCommand -Quest $nextPrompt -Goal $Goal -MemoryContext $memCtx -EmitJson -OutDir $OutDir 2>$null | Select-Object -Last 1
     $cycle = $null
     try { $cycle = $raw | ConvertFrom-Json } catch { }
 
@@ -108,6 +123,14 @@ while ($iteration -le $MaxIterations -and -not $done) {
     }
 
     $verdicts += $cycle.verdict
+    # Registrar la iteracion en el historial (alimenta la memoria de Atlas)
+    $history += [pscustomobject]@{
+        iteration   = $iteration
+        quest       = $nextPrompt
+        verdict     = $cycle.verdict
+        decision    = $cycle.decision
+        remediation = $cycle.remediation
+    }
     Write-Host ("`n  >>> Verdict Tywin: {0} | Decision Atlas: {1}" -f $cycle.verdict, $cycle.decision) -ForegroundColor Green
 
     # ==== Logica de continuacion: la retroalimentacion genera el siguiente prompt ====

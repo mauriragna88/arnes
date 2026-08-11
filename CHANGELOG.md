@@ -11,6 +11,9 @@ Todos los cambios relevantes de ARNES ARGOS se registran en este archivo.
   la remediation de Tywin genera el siguiente prompt; PASS → siguiente paso incremental; termina con
   GOAL_COMPLETE, límite de iteraciones o `/autowork stop`/Ctrl+C. Estado persistente en
   `.arnes/goal-state.json` con reanudación (`-Resume`).
+- **Decisiones de Atlas con memoria**: cada iteración inyecta el historial del objetivo
+  (CONTEXTO DE MEMORIA) a la decisión de Atlas; cada agente guarda qué entregó
+  (`<agente>/executions/`), Tywin sus verdicts y Atlas un debrief (`atlas/debriefs/<quest>`).
 - `argos target`: selector de entorno de trabajo — abre OpenCode, Codex o Claude con el
   entorno ARNES cargado (personas/agentes/memoria). Default persistido en
   `~/.config/arnes/target.json`; `argos target set <nombre>`, `argos target list`,
