@@ -20,13 +20,22 @@ Implementar backend sólido con validación, seguridad y verificación.
 ## Pasos (procedimiento PROPIO del arnes)
 1. **RECALL**: `read .arnes/memory/export/ansem-memory.jsonl`
    `read .arnes/graph/edges.jsonl` — no recrear schemas existentes
-2. **Convenciones**: memoria `ansem/endpoint-conventions`, `ansem/schemas`
-3. **Implementar**: API route/action tipada, Zod para validar inputs SIEMPRE, manejo de
+2. **Contract Audit — patrones del proyecto (si toca esquemas/RLS/migraciones)**:
+   `read scripts/contract-audit/config.json` — sección `auth` para conocer:
+   - tenant column (organization_id vs empresa_id) — USARLA en todas las RLS y queries
+   - profile table (profiles vs usuarios) — FK correcta a auth.users
+   - helpers de auth (current_active_organization_id vs auth_user_empresa_id) — USARLOS en RLS
+   - claims JWT usados (solo auth.uid) — NO usar auth.jwt()/auth.email()/auth.role()
+   - rls_pattern (tenant_membership vs empresa_id_match) — seguir el patrón existente
+   - NO adivinar nombres de columnas de tenant/auth
+   - Si no existe `config.json` o no tiene sección `auth`: `argos audit scan` primero
+3. **Convenciones**: memoria `ansem/endpoint-conventions`, `ansem/schemas`
+4. **Implementar**: API route/action tipada, Zod para validar inputs SIEMPRE, manejo de
    errores explícito, RLS en tablas Supabase
-4. **Seguridad**: input validado, nunca confiar en el cliente (verificar con Auron si L0)
-5. **Verificar**: typecheck + tests de la lógica (proporcional a complejidad)
-6. **GUARDAR**: `write` una linea en `.arnes/memory/export/ansem-memory.jsonl` (topic `ansem/<tipo>`, type `pattern`)
-7. **GRAFO**: `write` la relacion en `.arnes/graph/edges.jsonl` (source "<schema>", target "rls-policy", relation protected_by, agent ansem)
+5. **Seguridad**: input validado, nunca confiar en el cliente (verificar con Auron si L0)
+6. **Verificar**: typecheck + tests de la lógica (proporcional a complejidad)
+7. **GUARDAR**: `write` una linea en `.arnes/memory/export/ansem-memory.jsonl` (topic `ansem/<tipo>`, type `pattern`)
+8. **GRAFO**: `write` la relacion en `.arnes/graph/edges.jsonl` (source "<schema>", target "rls-policy", relation protected_by, agent ansem)
 
 ## Output esperado
 - API/action/schema funcional, validado con Zod, RLS habilitado, con tests si la lógica lo amerita

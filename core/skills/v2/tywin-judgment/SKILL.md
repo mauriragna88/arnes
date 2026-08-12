@@ -27,7 +27,7 @@ El juicio final: ¿el trabajo cumple lo que se pidió?
    - Contrastar CADA criterio del spec contra lo leído
 3. **Contract Audit gate (MANDATORY si el quest toca DB/API/frontend)**:
    - Invocar `npm run contract:audit` en el proyecto (skill arnes-contract-audit, ADR-006)
-   - El reporte (L1-L6, checks C1-C34) entra como evidence pre-verdict
+   - El reporte (L1-L6, checks C1-C38) entra como evidence pre-verdict
    - FAIL del gate = FAIL del verdict (aunque el spec esté cumplido) — la clase DB↔Frontend no puede pasar
    - Migraciones / `database.types.ts` / contratos → SIEMPRE aplica el gate, no es opcional
 4. **Emitir verdict**:

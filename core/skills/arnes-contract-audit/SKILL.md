@@ -52,25 +52,36 @@ que validan hechos reales (schema vs código) y fallan igual cada vez.**
    - **AST audit** (script propio): extraer todos los `.select("...")` string literals del codebase,
      validar cada token contra las Row types de `database.types.ts`
    - Mismo para `.order()`, `.range()`, join syntax `alias:table!fk(...)`
-4. **Gate L3 — Relations (FK/PK integrity)**:
+4. **Gate L2.5 — Auth & Identity Contract (argos audit scan)**:
+   - `read scripts/contract-audit/config.json` — sección `auth`:
+     - C7: profile table existe y tiene FK a auth.users
+     - C8: tenant column es consistente en todas las tablas
+     - C9: código frontend usa el mismo nombre de tenant column
+     - C10: auth helpers existen en la BD
+     - C11: claims JWT usados son los esperados (solo auth.uid si ese es el patrón)
+     - C12: RLS policies no tienen USING(TRUE)
+     - C13: roles se resuelven como espera el proyecto
+     - C14: perfil de usuario se carga correctamente
+   - Si no existe sección `auth` en config.json: fallar con remediation "correr argos audit scan"
+5. **Gate L3 — Relations (FK/PK integrity)**:
    - Script SQL contra `information_schema`: FK column type == PK type (catches 42804)
    - FK target table/column existe
    - `ON DELETE` semantics match app expectations
-5. **Gate L4 — API ↔ Contract (server side)**:
+6. **Gate L4 — API ↔ Contract (server side)**:
    - Cada route handler exporta `inputSchema` (Zod) — verificador static
    - `select('*')` prohibido (leak de columnas internas)
    - Response shape pasa `outputSchema` (validado en L6 smoke tests)
-6. **Gate L5 — API ↔ Frontend (response contract)**:
+7. **Gate L5 — API ↔ Frontend (response contract)**:
    - `typedRoutes: true` activo en `next.config` (catches route typos at compile time)
    - Cliente consume `z.infer<typeof outputSchema>` — no hand-rolled interfaces duplicando API
    - snake_case↔camelCase mapping centralizado en un único mapper
-7. **Gate L6 — Runtime smoke tests (defense in depth)**:
+8. **Gate L6 — Runtime smoke tests (defense in depth)**:
    - Vitest: cada route hit contra local stack, response parseada con su `outputSchema`
    - `supabase db test` para RLS policies (pgTAP o matrix anon/auth)
-8. **Síntesis del reporte**: mapear fails a check-IDs (C1-C34) con file:line evidence
-9. **GUARDAR**: `arnes-memory.ps1 save -Agent tywin -Topic "tywin/contract-audits" -Type audit`
-   — guardar drifts encontrados, patrones recurrentes, lecciones para futuras sesiones
-10. **Entregar a Tywin**: reporte estructurado — Tywin lo consume como evidence pre-verdict
+9. **Síntesis del reporte**: mapear fails a check-IDs (C1-C38) con file:line evidence
+10. **GUARDAR**: `arnes-memory.ps1 save -Agent tywin -Topic "tywin/contract-audits" -Type audit`
+    — guardar drifts encontrados, patrones recurrentes, lecciones para futuras sesiones
+11. **Entregar a Tywin**: reporte estructurado — Tywin lo consume como evidence pre-verdict
 
 ## Output esperado
 
@@ -81,6 +92,9 @@ L1 Migrations↔Types:    [PASS | FAIL: database.types.ts stale vs migrations]
 L2 Schema↔Code:         [PASS | FAIL: N column references invalid]
   - C4: src/app/orders/page.tsx:42 .select("custmer_name") → "customer_name" typo
   - C5: src/api/route.ts:18 .eq("statu", "open") → "status" typo
+L2.5 Auth&Identity:     [PASS | FAIL: auth pattern mismatch]
+  - C8: tenant column "organization_id" en tablas, frontend usa "empresa_id"
+  - C11: codigo usa auth.jwt() pero proyecto solo usa auth.uid()
 L3 FK/PK integrity:     [PASS | FAIL: M FK mismatches]
   - C12: orders.user_id (uuid) ≠ users.id (text) → 42804 runtime
 L4 API↔Contract:        [PASS | FAIL: routes without exported schema]
@@ -91,10 +105,11 @@ VERDICT: PASS | FAIL_PARTIAL | FAIL_TOTAL
 Remediation (si FAIL):
   - [ ] Regenerar database.types.ts
   - [ ] Fix .select() typos en <files>
+  - [ ] Correr "argos audit scan" + fix patrones de auth
   - [ ] ...
 ```
 
-## Las 34 validaciones (referencia quick-lookup)
+## Las 38 validaciones (referencia quick-lookup)
 
 ### L1 — Migrations ↔ Generated Types (staleness)
 - **C1.** `database.types.ts` idéntico a `supabase gen types` output
@@ -110,6 +125,16 @@ Remediation (si FAIL):
 - **C9.** Nullability: columnas required siempre provistas en insert; nullable con `??` en read
 - **C10.** Enum set de Postgres == union TS (sin missing/extra members)
 - **C11.** No `any` ni supabase client untyped (ESLint `no-explicit-any` + custom rule)
+
+### L2.5 — Auth & Identity Contract (específico del proyecto, detectado por `argos audit scan`)
+- **C7.** Profile table (`profiles`/`usuarios`) tiene `id` = `auth.users.id` con FK o mismo UUID
+- **C8.** Tenant column (`organization_id`/`empresa_id`) existe en todas las tablas de negocio y coincide con el helper de auth
+- **C9.** Código frontend usa el mismo nombre de tenant column que el schema (`.eq("organization_id", ...)` vs `.eq("empresa_id", ...)`)
+- **C10.** Auth helpers referenciados en RLS (`current_active_organization_id`, `auth_user_empresa_id`, etc.) existen como funciones en la BD
+- **C11.** No hay `auth.jwt()`, `auth.email()`, `auth.role()` sueltos donde el proyecto solo usa `auth.uid()`
+- **C12.** RLS policies no usan `USING(TRUE)` (tenant isolation siempre activa)
+- **C13.** Roles se resuelven como espera el proyecto: DB lookup vs JWT claim vs columna directa
+- **C14.** El perfil del usuario se carga correctamente (`.from("profiles").eq("id", auth.uid())` o patrón equivalente)
 
 ### L3 — Migrations ↔ Relations (FK/PK integrity)
 - **C12.** Tipo FK == tipo PK referenciado (catches Postgres 42804)
@@ -166,7 +191,7 @@ Remediation (si FAIL):
 4. **FAIL sin remediation = auditoría incompleta** (hereda regla de tywin-judgment)
 5. **No skipable** — el gate es mandatory pre-verdict (Tywin) y pre-merge (CI); si se puede skipar, la clase de bug sobrevive
 6. **Strings no-literal en `.select()` flag** — `.select(\`col_${var}\`)` no se puede verificar estáticamente; el audit debe marcar como UNVERIFIABLE y requerir runtime check, no pasar en silencio
-7. **Proporcionalidad** — proyecto S no necesita las 34 checks; selecciona tier por tamaño (mínimo L1+L2 siempre)
+7. **Proporcionalidad** — proyecto S no necesita todas las checks; selecciona tier por tamaño (mínimo L1+L2 siempre; standard = L1+L2+L2.5+L3)
 8. **`QueryData` bonus**: usar `QueryData<typeof query>` en supabase-js v2 da type inference del select string —Makes some typos surfacen as type errors. Útil pero NO reemplaza el AST audit (QueryData no valida todos los casos)
 
 ## Implementación por proyecto

@@ -344,7 +344,7 @@ function Show-Menu {
     Write-Host '  [6] Estado del entorno (/status)' -ForegroundColor White
     Write-Host '  [7] Memoria (/memory)' -ForegroundColor White
     Write-Host '  [8] Diagnostico de prerequisitos (/doctor)' -ForegroundColor White
-    Write-Host '  [9] Abrir entorno (OpenCode / Codex / Claude) (/target)' -ForegroundColor White
+    Write-Host '  [9] Abrir entorno (OpenCode / Codex / Claude / Freebuff) (/target)' -ForegroundColor White
     Write-Host '  [A] Contract Audit DB<->Frontend (/audit)' -ForegroundColor White
     Write-Host '  [Q] Salir' -ForegroundColor White
     Write-Host '  ================================================' -ForegroundColor DarkGray
@@ -574,13 +574,15 @@ switch ($Command) {
         & (Join-Path $ScriptDir 'argos-opencode.ps1') -Quest $q
     }
     'target' {
-        # argos target [opencode|codex|claude|auto|show|list|set <nombre>]
+        # argos target [opencode|codex|claude|freebuff|auto|show|list|set <nombre>]
         $verb = if ($Model) { $Model } elseif ($Args -and $Args.Count -gt 0) { $Args[0] } else { '' }
-        $name = if ($Args -and $Args.Count -gt 1) { $Args[1] } else { '' }
-        $quest = if ($Args -and $Args.Count -gt 2) { ($Args[2..($Args.Count - 1)] -join ' ') } else { '' }
-        if ($verb -in @('opencode', 'codex', 'claude', 'auto')) {
+        if ($verb -in @('opencode', 'codex', 'claude', 'freebuff', 'auto')) {
+            # El quest es TODO lo que sigue al target (PowerShell parte el string en palabras)
+            $quest = if ($Args -and $Args.Count -gt 0) { ($Args -join ' ') } else { '' }
             & (Join-Path $ScriptDir 'argos-target.ps1') -Target $verb -Quest $quest
         } elseif ($verb -eq 'set') {
+            # argos target set <nombre>: el nombre es el primer argumento restante
+            $name = if ($Args -and $Args.Count -gt 0) { $Args[0] } else { '' }
             & (Join-Path $ScriptDir 'argos-target.ps1') set -Name $name
         } elseif ($verb -eq 'show') {
             & (Join-Path $ScriptDir 'argos-target.ps1') show
@@ -591,11 +593,13 @@ switch ($Command) {
         }
     }
     'audit' {
-        # argos audit [init|status|run] [--json]
+        # argos audit [init|scan|status|run] [--json]
         $verb = if ($Model) { $Model } elseif ($Args -and $Args.Count -gt 0) { $Args[0] } else { '' }
         $isJson = $Args -contains '--json' -or $Json
         if ($verb -eq 'init') {
             & (Join-Path $ScriptDir 'argos-audit.ps1') init
+        } elseif ($verb -eq 'scan') {
+            & (Join-Path $ScriptDir 'argos-audit.ps1') scan
         } elseif ($verb -eq 'status') {
             & (Join-Path $ScriptDir 'argos-audit.ps1') status
         } elseif ($verb -eq 'run') {

@@ -89,6 +89,40 @@ if ($l2Exit -eq 0) {
     $failed = $true
 }
 
+# --- L2.5: Auth & Identity Contract (patrones del proyecto) ---
+Report-Line '  ── L2.5 · Auth & Identity Contract (argos audit scan) ─────────'
+$l25Pass = $true
+$authCfg = $cfg.auth
+if ($authCfg) {
+    $authCfg = $cfg.auth
+    $ok = $true
+    # C7: Profile table known
+    if (-not $authCfg.profile_table) {
+        Report-Line '  [FAIL] C7: tabla de perfiles no detectada (profiles/usuarios)'
+        $ok = $false
+    }
+    # C8: Tenant column known
+    if (-not $authCfg.tenant_column) {
+        Report-Line '  [FAIL] C8: tenant column no detectada (organization_id/empresa_id)'
+        $ok = $false
+    }
+    # C11: Auth claims check
+    if ($authCfg.auth_claims -contains 'auth.jwt' -or $authCfg.auth_claims -contains 'auth.email' -or $authCfg.auth_claims -contains 'auth.role') {
+        Report-Line ('  [FAIL] C11: se usan claims JWT extras: {0} - verificar si es intencional' -f (@($authCfg.auth_claims | Where-Object { $_ -ne 'auth.uid' }) -join ', '))
+        $ok = $false
+    }
+    if ($ok) {
+        Report-Line ("  [PASS] auth OK: tenant=$($authCfg.tenant_column), profile=$($authCfg.profile_table), helpers=$($authCfg.auth_helpers -join ',')")
+        $layers += 'L2.5:PASS'
+    } else {
+        $layers += 'L2.5:FAIL'
+        $failed = $true
+    }
+} else {
+    Report-Line '  [SKIP] sin config de auth (correr: argos audit scan)'
+    $layers += 'L2.5:SKIP'
+}
+
 # --- L3: FK/PK integrity (requiere conexion a la DB) ---
 Report-Line '  ── L3 · Relations (FK/PK integrity) ─────────────────────────'
 $sqlFile = Join-Path $ScriptDir 'fk-audit.sql'

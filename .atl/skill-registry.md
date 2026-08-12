@@ -80,12 +80,23 @@ Cuando Atlas selecciona un party, resuelve skills así:
 - Unknown library → eremez-mark (context7, web-search)
 - L0 / deploy / RLS → auron-bulwark (L0 Gate obligatorio)
 - migraciones / `database.types.ts` / contratos DB↔Frontend → arnes-contract-audit (gate determinístico, ADR-006)
+- Queries Supabase / RLS / auth → arnes-contract-audit (leer patrones de auth del proyecto antes de codificar)
 - "¿cómo vamos?" / análisis → bran-vision
 - "revisa recursos" → tidus-tide-check
 - "¿hay algo nuevo?" / compras → ragnarok-scout
 
 ### Contract Audit (arnes-contract-audit) — OBLIGATORIO
 Audita el contrato de datos DB↔API↔Frontend. Es **MANDATORY pre-verdict** para quests que toquen la superficie DB/frontend (migraciones, `database.types.ts`, tipos compartidos). Referencia: **ADR-006**.
+
+**Carga automática para agentes que escriben código:**
+- **Vivi** (frontend): debe cargar la skill antes de escribir cualquier componente que haga queries Supabase
+- **Ansem** (backend): debe cargar la skill antes de crear migraciones, schemas o RLS
+- **Tywin** (verificador): invoca el gate `npm run contract:audit` como paso mandatory pre-verdict
+- **Pasos**:
+  1. Leer `scripts/contract-audit/config.json` → sección `auth` para conocer los patrones del proyecto
+  2. Conocer tenant column, profile table, helpers de auth, claims JWT usados
+  3. NO adivinar — si `config.json` no tiene sección `auth`, correr `argos audit scan` primero
+  4. Escribir código que respete esos patrones exactos
 
 ## Skills web = COMPLEMENTO DE PODER (se mantienen instaladas)
 

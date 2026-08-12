@@ -6,9 +6,10 @@ Propietario: Tywin (lo invoca como paso mandatory pre-verdict).
 ## Qué valida
 
 | Capa | Checks | Qué atrapa |
-|---|---|---|
+|---|---|---|---|
 | **L1** Migrations ↔ Types | C1-C3 | `database.types.ts` desactualizado vs migraciones |
 | **L2** Schema ↔ Código | C4-C11 | `.select("col_inventada")`, `.eq()` typos, keys de insert/update inexistentes, joins con FK rota |
+| **L2.5** Auth & Identity | C7-C14 | Tenant column, profile table, auth helpers, JWT claims usados, RLS pattern |
 | **L3** FK/PK integrity | C12-C16 | FK type ≠ PK type (42804), FK target inexistente, ON DELETE inconsistente |
 | **L4** API ↔ Contract | C17-C23 | routes sin Zod, `select('*')`, error contract roto |
 | **L5** API ↔ Frontend | C24-C31 | response shape mismatch, typedRoutes, snake/camel |
