@@ -227,7 +227,7 @@ function Invoke-Scan {
         }
 
         # Tenant column name
-        if ($allSql -match '\borgganization_id\b') {
+        if ($allSql -match '\borganization_id\b') {
             $result.tenant_column = 'organization_id'
         } elseif ($allSql -match '\bempresa_id\b') {
             $result.tenant_column = 'empresa_id'
@@ -275,7 +275,12 @@ function Invoke-Scan {
     if ($srcDir) {
         $tsFiles = @(Get-ChildItem $srcDir -Recurse -Include '*.ts', '*.tsx', '*.js', '*.jsx' -ErrorAction SilentlyContinue |
             Where-Object { $_.FullName -notmatch 'node_modules|\.next' } | Select-Object -First 100)
-        $allCode = @($tsFiles | ForEach-Object { Get-Content $_.FullName -Raw -ErrorAction SilentlyContinue }) -join "`n"
+        $allCode = ""
+        if ($tsFiles.Count -gt 0) {
+            $allCode = @($tsFiles | ForEach-Object { 
+                try { Get-Content $_.FullName -Raw } catch { "" }
+            }) -join "`n"
+        }
 
         # How does frontend get tenant ID?
         if ($allCode -match '\.from\("usuarios"\)') { $result.profile_table = 'usuarios' }
@@ -290,12 +295,13 @@ function Invoke-Scan {
     }
 
     # Summary
-    $result.summary = "Tenant via ${($result.tenant_column)}, " +
-        "roles via ${($result.role_resolution)}, " +
-        "profile table: ${($result.profile_table)}, " +
-        "helpers: $($result.auth_helpers -join ', '), " +
-        "JWT claims: $($result.auth_claims -join ', '), " +
-        "RLS: $($result.rls_pattern)"
+    $tc = if ($result.tenant_column) { $result.tenant_column } else { '?' }
+    $pr = if ($result.role_resolution) { $result.role_resolution } else { '?' }
+    $pt = if ($result.profile_table) { $result.profile_table } else { '?' }
+    $ah = if ($result.auth_helpers) { $result.auth_helpers -join ', ' } else { '?' }
+    $ac = if ($result.auth_claims) { $result.auth_claims -join ', ' } else { '?' }
+    $rp = if ($result.rls_pattern) { $result.rls_pattern } else { '?' }
+    $result.summary = "Tenant via $tc, roles via $pr, profile table: $pt, helpers: $ah, JWT claims: $ac, RLS: $rp"
 
     # Guardar en config.json
     $configPath = $ConfigPath
