@@ -21,10 +21,16 @@ El juicio final: ¿el trabajo cumple lo que se pidió?
 1. **RECALL**: leer specs y criterios relevantes (solo read)
    `read .arnes/memory/export/tywin-memory.jsonl` — veredictos previos del dominio
    `read .arnes/sdd/<change-id>/spec.md` si existe — criterios de aceptación
+   `arnes-memory.ps1 search -Agent tywin -Query "contract audit <project>"` — drifts conocidos (skill arnes-contract-audit)
 2. **Verificar con lectura directa** (no confiar en el ejecutor):
    - `read` los archivos del change: tipos, imports, tests, estructura
    - Contrastar CADA criterio del spec contra lo leído
-3. **Emitir verdict**:
+3. **Contract Audit gate (MANDATORY si el quest toca DB/API/frontend)**:
+   - Invocar `npm run contract:audit` en el proyecto (skill arnes-contract-audit, ADR-006)
+   - El reporte (L1-L6, checks C1-C34) entra como evidence pre-verdict
+   - FAIL del gate = FAIL del verdict (aunque el spec esté cumplido) — la clase DB↔Frontend no puede pasar
+   - Migraciones / `database.types.ts` / contratos → SIEMPRE aplica el gate, no es opcional
+4. **Emitir verdict**:
    - PASS: todos los criterios cumplidos
    - FAIL_PARTIAL: algunos cumplidos + remediation listado
    - FAIL_TOTAL: no cumple + remediation completo (QUÉ falta exactamente)
@@ -49,3 +55,5 @@ El juicio final: ¿el trabajo cumple lo que se pidió?
 2. FAIL SIN remediation = auditoría incompleta (gate inalterable)
 3. No aprobar sin tests si el spec los pedía
 4. Todo retry conserva las referencias de evidencia y vuelve a pasar por Tywin
+5. Contract audit (arnes-contract-audit, ADR-006) es **no skipable** en quests que tocan superficie DB/API/frontend — si el proyecto no tiene `contract:audit` configurado, se marca como remediation y se reporta, no se ignora
+6. Los checks del reporte (C1-C34) se convierten en items de remediation cuando hay FAIL — "FAIL sin remediation = auditoría incompleta"

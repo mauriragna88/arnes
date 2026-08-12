@@ -61,6 +61,7 @@ son **complemento de poder** — potencian la ejecución, nunca son dependencia 
 | Quina | quina-ledger | Token economy, /status |
 | Varys | varys-whisper | Observar party, evidence_pack, write-back |
 | Tywin | tywin-judgment | Verdict PASS/FAIL con evidencia |
+| Tywin | arnes-contract-audit | Contract audit DB↔API↔Frontend (pre-verdict, pre-deploy, post-migration) |
 | Sam | sam-counsel | Recomendación con memoria histórica |
 | Atlas | atlas-orchestrate | Orquestar quests, party select, loop |
 | Tidus | tidus-tide-check | Health-check recursos, cuotas |
@@ -78,9 +79,13 @@ Cuando Atlas selecciona un party, resuelve skills así:
 - Architecture docs → amarant-foresight (clean-architecture, arnes-sdd-*)
 - Unknown library → eremez-mark (context7, web-search)
 - L0 / deploy / RLS → auron-bulwark (L0 Gate obligatorio)
+- migraciones / `database.types.ts` / contratos DB↔Frontend → arnes-contract-audit (gate determinístico, ADR-006)
 - "¿cómo vamos?" / análisis → bran-vision
 - "revisa recursos" → tidus-tide-check
 - "¿hay algo nuevo?" / compras → ragnarok-scout
+
+### Contract Audit (arnes-contract-audit) — OBLIGATORIO
+Audita el contrato de datos DB↔API↔Frontend. Es **MANDATORY pre-verdict** para quests que toquen la superficie DB/frontend (migraciones, `database.types.ts`, tipos compartidos). Referencia: **ADR-006**.
 
 ## Skills web = COMPLEMENTO DE PODER (se mantienen instaladas)
 
@@ -96,6 +101,7 @@ Cuando Atlas selecciona un party, resuelve skills así:
 | superpowers (258K⭐), ui-ux-pro-max (79K⭐), taste-skill (66K⭐) | Party (arsenal extra) |
 
 ## GAPs (oportunidades para Ragnarok)
+- Contract validation DB↔Frontend: **CERRADO** (arnes-contract-audit, ADR-006)
 - Bard: mejorar DX/docs (parcialmente cubierto)
 - Performance: query-optimization (Alchemist futuro)
 - Marketing/Ventas: vacante (futuro)

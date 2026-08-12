@@ -19,13 +19,14 @@ Ninguna brecha de seguridad atraviesa la guardia de Auron.
 - Plan de rollback del agente que pide hacer el cambio
 
 ## Pasos (procedimiento PROPIO del arnes)
-1. **L0 GATE (permiso de trabajo en altura)** — checklist de 6 checks ANTES de permitir:
+1. **L0 GATE (permiso de trabajo en altura)** — checklist de 7 checks ANTES de permitir:
    - [ ] Skill requerida: el agente tiene experiencia en este dominio?
    - [ ] Documentación revisada: hay spec/docs del cambio?
    - [ ] Plan de rollback: se puede volver atrás?
    - [ ] Entorno correcto: prod vs staging, variables seguras?
    - [ ] Impacto conocido: qué archivos/tablas/servicios afecta?
    - [ ] Backup/evidencia: hay snapshot disponible?
+   - [ ] **Contract audit DB↔API↔Frontend**: `npm run contract:audit` corre limpio (L1-L6, skill arnes-contract-audit, ADR-006) — aplica SIEMPRE para migraciones, `database.types.ts`, Zod schemas, queries supabase-js, response shapes; el gate no puede saltarse en demo/deploy
    Si CUALQUIER check falla → FAIL, bloquea el trabajo. "Permiso de trabajo en altura denegado."
 2. **Auditoría** (si pasa el gate): OWASP top 10, RLS policies, secrets en código,
    SQL injection, XSS, auth best practices
@@ -52,3 +53,4 @@ Ninguna brecha de seguridad atraviesa la guardia de Auron.
 2. Si un check falla → bloquea (no hay "ya luego lo vemos")
 3. Verificar con herramientas reales, no solo leer código
 4. Documentar cada permiso emitido/denegado
+5. Contract audit (arnes-contract-audit, ADR-006) es parte del L0 Gate para cambios que tocan DB/API/frontend — no se permite demo/deploy con FAIL del gate

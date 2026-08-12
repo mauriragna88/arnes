@@ -22,7 +22,7 @@ argos init               -> inicializar proyecto
 [CmdletBinding()]
 param(
     [Parameter(Position = 0)]
-    [ValidateSet('', 'menu', 'init', 'connect', 'connect-agent', 'configure', 'chat', 'status', 'stats', 'models', 'model', 'memory', 'recommend', 'mode', 'doctor', 'verify', 'test-model', 'quest', 'party', 'xp', 'theme', 'code', 'opencode', 'target', 'goal')]
+    [ValidateSet('', 'menu', 'init', 'connect', 'connect-agent', 'configure', 'chat', 'status', 'stats', 'models', 'model', 'memory', 'recommend', 'mode', 'doctor', 'verify', 'test-model', 'quest', 'party', 'xp', 'theme', 'code', 'opencode', 'target', 'goal', 'audit')]
     [string]$Command = '',
 
     [Parameter(Position = 1)]
@@ -161,6 +161,9 @@ function Init-Project {
     # Desplegar los modelos a los agentes instalados
     & (Join-Path $ScriptDir 'argos-models-apply.ps1') -SkipBackup
     Write-Host "  [OK] Proyecto inicializado." -ForegroundColor Green
+    # Contract Audit gate: despliegue FORZOSO en proyecto nuevo (ADR-006)
+    Write-Host "  [OK] Desplegando Contract Audit gate (DB <-> Frontend)..." -ForegroundColor Cyan
+    & (Join-Path $ScriptDir 'argos-audit.ps1') init
     # Perfil del proyecto: ruta, git, stack, stats, memoria
     & (Join-Path $ScriptDir 'argos-project.ps1') -Update | Out-Null
     Write-Host ''
@@ -342,6 +345,7 @@ function Show-Menu {
     Write-Host '  [7] Memoria (/memory)' -ForegroundColor White
     Write-Host '  [8] Diagnostico de prerequisitos (/doctor)' -ForegroundColor White
     Write-Host '  [9] Abrir entorno (OpenCode / Codex / Claude) (/target)' -ForegroundColor White
+    Write-Host '  [A] Contract Audit DB<->Frontend (/audit)' -ForegroundColor White
     Write-Host '  [Q] Salir' -ForegroundColor White
     Write-Host '  ================================================' -ForegroundColor DarkGray
     Write-Host ''
@@ -358,6 +362,8 @@ function Show-Menu {
         '7' { $mem = Join-Path $ScriptDir 'arnes-memory.ps1'; & $mem stats; Read-Input '  Enter para volver'; Show-Menu }
         '8' { & (Join-Path $ScriptDir 'argos-doctor.ps1'); Read-Input '  Enter para volver'; Show-Menu }
         '9' { & (Join-Path $ScriptDir 'argos-target.ps1') -Target auto }
+        'a' { & (Join-Path $ScriptDir 'argos-audit.ps1'); Read-Input '  Enter para volver'; Show-Menu }
+        'A' { & (Join-Path $ScriptDir 'argos-audit.ps1'); Read-Input '  Enter para volver'; Show-Menu }
         'q' { Write-Host '  Adios. Los 100 ojos te observan.'; exit 0 }
         'Q' { Write-Host '  Adios. Los 100 ojos te observan.'; exit 0 }
         default { Show-Menu }
@@ -582,6 +588,20 @@ switch ($Command) {
             & (Join-Path $ScriptDir 'argos-target.ps1') list
         } else {
             & (Join-Path $ScriptDir 'argos-target.ps1')
+        }
+    }
+    'audit' {
+        # argos audit [init|status|run] [--json]
+        $verb = if ($Model) { $Model } elseif ($Args -and $Args.Count -gt 0) { $Args[0] } else { '' }
+        $isJson = $Args -contains '--json' -or $Json
+        if ($verb -eq 'init') {
+            & (Join-Path $ScriptDir 'argos-audit.ps1') init
+        } elseif ($verb -eq 'status') {
+            & (Join-Path $ScriptDir 'argos-audit.ps1') status
+        } elseif ($verb -eq 'run') {
+            if ($isJson) { & (Join-Path $ScriptDir 'argos-audit.ps1') run -Json } else { & (Join-Path $ScriptDir 'argos-audit.ps1') run }
+        } else {
+            & (Join-Path $ScriptDir 'argos-audit.ps1')
         }
     }
     'menu' { Show-Menu }

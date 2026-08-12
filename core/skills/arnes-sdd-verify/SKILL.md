@@ -21,8 +21,13 @@ del spec. NO se confia en el ejecutor — se verifica con evidencia real.
    - `read` los tests del change si existen
    - contrastar CADA criterio de aceptacion contra lo leido
 4. Contrastar CADA criterio de aceptacion contra el codigo
-5. Consultar memoria/grafo: las relaciones registradas son correctas?
-6. Emitir verdict:
+5. **Contract Audit gate (MANDATORY si el change toca DB/API/frontend)**:
+   - Invocar `npm run contract:audit` en el proyecto (skill arnes-contract-audit, ADR-006)
+   - El reporte (L1-L6, checks C1-C34) entra como evidence pre-verdict
+   - FAIL del gate = FAIL del verdict (aunque el spec este cumplido)
+   - Aplica SIEMPRE si el change toca: migraciones, `database.types.ts`, Zod schemas, queries supabase-js, response shapes de API
+6. Consultar memoria/grafo: las relaciones registradas son correctas?
+7. Emitir verdict:
 
 ```
 VERDICT: PASS | FAIL_PARTIAL | FAIL_TOTAL
@@ -36,6 +41,9 @@ Remediation (si FAIL): <que falta exactamente>
 ```
 
 7. Guardar verdict: `write` una linea en `.arnes/memory/export/tywin-memory.jsonl` (topic `tywin/verdicts`, type `verdict`)
+
+> **Contract audit**: si el change toca la superficie DB/API/frontend, el paso 5 es obligatorio
+> (skill `arnes-contract-audit`, ADR-006). Sin el reporte no hay verdict.
 
 ## Reglas
 

@@ -19,9 +19,14 @@ El review es por FEATURE (rápido y enfocado), no un mega-audit de todo el set.
    - `read` los tests de la feature si existen
    - contrastar cada criterio del plan contra lo leido
 3. Contrastar cada criterio del plan contra el código
-4. Kuja: tests de la feature (proporcional — trivial = poco, complejo = completo)
-5. Tywin: verdict PASS / FAIL_PARTIAL / FAIL_TOTAL con evidencia
-6. Guardar verdict: `write` una linea en `.arnes/memory/export/tywin-memory.jsonl` (topic `tywin/verdicts`, type `verdict`)
+4. **Contract Audit gate (MANDATORY si la feature toca DB/API/frontend)**:
+   - Invocar `npm run contract:audit` en el proyecto (skill arnes-contract-audit, ADR-006)
+   - El reporte (L1-L6, checks C1-C34) entra como evidence pre-verdict
+   - FAIL del gate = FAIL del verdict (aunque los criterios de done estén cumplidos)
+   - Aplica SIEMPRE si la feature toca: migraciones, `database.types.ts`, Zod schemas, queries supabase-js, response shapes de API
+5. Kuja: tests de la feature (proporcional — trivial = poco, complejo = completo)
+6. Tywin: verdict PASS / FAIL_PARTIAL / FAIL_TOTAL con evidencia
+7. Guardar verdict: `write` una linea en `.arnes/memory/export/tywin-memory.jsonl` (topic `tywin/verdicts`, type `verdict`)
 
 ## Output esperado
 
@@ -39,6 +44,7 @@ FEATURE F<N> REVIEW:
 2. **FAIL = remediation** — qué falta exactamente para el siguiente intento
 3. **Proporcionalidad** — una feature S no necesita el mismo review que una L
 4. **Guardar verdict** — la memoria sabe si la feature pasó o no
+5. **Contract audit no skipable** (arnes-contract-audit, ADR-006) — si la feature toca DB/API/frontend, el paso 4 es obligatorio; sin reporte no hay verdict
 
 ## Referencia de archivos
 
