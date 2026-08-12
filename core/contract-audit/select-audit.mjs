@@ -153,8 +153,8 @@ function validateSelect(colsRaw, tableCols, tableName, relMap, dbTables) {
       continue;
     }
 
-    // Embedded join con alias: alias:tabla(col1,col2)
-    let embAlias = part.match(/^([\w]+):([\w]+)\(([^)]*)\)$/);
+    // Embedded join con alias: alias:tabla(col1,col2) o alias:tabla!inner(col1,col2)
+    let embAlias = part.match(/^([\w]+):([\w]+)(?:!(?:inner|left|outer|full))?\(([^)]*)\)$/);
     if (embAlias) {
       const [, , relTable, innerCols] = embAlias;
       const relTableCols = dbTables[relTable];
@@ -171,8 +171,8 @@ function validateSelect(colsRaw, tableCols, tableName, relMap, dbTables) {
       continue;
     }
 
-    // Embedded join sin alias: tabla(col1,col2)
-    let emb = part.match(/^([\w]+)\(([^)]*)\)$/);
+    // Embedded join sin alias: tabla(col1,col2) o tabla!inner(col1,col2)
+    let emb = part.match(/^([\w]+)(?:!(?:inner|left|outer|full))?\(([^)]*)\)$/);
     if (emb) {
       const [, relTable, innerCols] = emb;
       const relTableCols = dbTables[relTable];
