@@ -15,6 +15,7 @@ Uso (desde CLI PowerShell): ver arnes-memory.ps1
 """
 
 import json
+import math
 import os
 import re
 import sqlite3
@@ -26,6 +27,67 @@ def _fts_escape(query):
     """Sanitiza el texto para MATCH de FTS5: solo palabras alfanumericas (con acentos)."""
     words = re.findall(r"[\wÃƒÂÃƒâ€°ÃƒÂÃƒâ€œÃƒÅ¡Ãƒâ€˜ÃƒÅ“ÃƒÂ¡ÃƒÂ©ÃƒÂ­ÃƒÂ³ÃƒÂºÃƒÂ±ÃƒÂ¼]+", query or "")
     return " ".join(words) or '""'
+
+
+# Palabras vacias para extraccion de entidades OSMA V4 (determinista, sin libs externas)
+_OSMA_STOPWORDS = frozenset("""
+de la el los las del para con por que una un and the en es se su al lo como mas pero ya no si
+me mi te le les sus esta este esto ese eso uno dos sin sobre entre porque cuando donde tambien
+todo toda todos todas nuestra nuestro ellos ellas quien cual quienes como cuanto cuando donde
+ademas durante mediante hasta hacia tras via bien muy poco mucho muchos muchas
+""".split())
+
+# ---- V6: Multidimensional Memory (cues, salience, anchors) ------------------
+# Tecnologias conocidas para extraccion de cues de tipo 'technology'
+# (match por substring sobre el texto de la experiencia en minusculas).
+_TECH_LIST = ["supabase", "firebase", "nextjs", "next.js", "react", "python", "sqlite",
+              "postgres", "postgresql", "tailwind", "typescript", "javascript", "docker",
+              "vercel", "prisma", "zod", "rls", "fts5", "supabase-cli", "node", "express",
+              "git", "github", "playwright", "vitest", "jest", "fastapi", "django",
+              "flask", "redis", "graphql", "rest"]
+
+# Alias estaticos para generacion de anclas de recuperacion:
+# si una experiencia tiene un cue con el valor clave, sus alias se agregan como anchors.
+_ALIAS_TABLE = {
+    "permission denied": ["access denied", "acceso denegado", "authorization error",
+                          "auth problem", "403 forbidden"],
+    "rls": ["row level security", "politicas rls", "rls policies"],
+    "login": ["autenticacion", "auth", "sign in", "inicio de sesion", "acceso"],
+    "supabase": ["base de datos", "db postgres"],
+    "middleware": ["interceptor", "request pipeline"],
+}
+
+# Saliencia base por tipo de experiencia (0..1). Default 0.3.
+_SALIENCE_BASE = {"decision": 0.7, "bugfix": 0.6, "verdict": 0.5, "discovery": 0.4,
+                  "recommendation": 0.35, "preference": 0.3, "pattern": 0.5,
+                  "action": 0.2, "session_summary": 0.2}
+
+# GAMMA de convergencia no-lineal multi-cue (episode_activation_score).
+_GAMMA = 0.1
+
+# ---- V7 audit (Tywin): competition_between_memories + fts5_integration ----
+# Pesos del competition_score: tie-breaker compuesto que ordena SOLO entre
+# resultados con episode_activation_score igual/cercano (el score primario
+# sigue dominando el ranking). Tunables: ajustar recencia/importancia/proyecto/
+# coherencia SIN tocar el factor primario episode_activation_score.
+_W_RECENCY = 0.05
+_W_IMPORTANCE = 0.05
+_W_PROJECT = 0.03
+_W_COHERENCE = 0.02
+# FIX 3 (Tywin): fallback FTS5 para cues SIN match estructurado. Flag para
+# desactivar el fallback sin tocar el path primario (LIKE sobre experience_cues).
+_FTS5_FALLBACK = True
+_FTS5_MAX_UNMATCHED = 2      # cues sin hit estructurado procesados por busqueda
+_FTS5_RECALL_LIMIT = 3       # observaciones FTS5 por cue no matcheado
+
+# Palabras de problema/error para el cue 'problem' (situacion).
+_PROBLEM_WORDS = ("error", "falla", "denied", "bug", "no puede", "permiso")
+
+# Frases de error explicitas para el cue 'error'.
+_ERROR_PHRASES = ("permission denied", "access denied")
+
+# Regex de frases de error: 'error <texto>'.
+_ERROR_RE = re.compile(r"error\s+[a-z0-9 ]{3,60}", re.IGNORECASE)
 
 
 SCHEMA = """
@@ -374,8 +436,136 @@ class ArnesBrain:
             self._conn.execute(
                 "UPDATE observations SET confidence=? WHERE confidence=0.5 AND type=?",
                 (c, type_name))
+        # ---- V4: OSMA associativo (co-activacion, contradicciones, consolidacion) ----
+        for col, ddl in [
+            ("activation_level", "ALTER TABLE observations ADD COLUMN activation_level REAL DEFAULT 0"),
+            ("last_decay_at", "ALTER TABLE observations ADD COLUMN last_decay_at TEXT"),
+            ("successful_retrievals", "ALTER TABLE observations ADD COLUMN successful_retrievals INTEGER DEFAULT 0"),
+            ("decay_base", "ALTER TABLE observations ADD COLUMN decay_base REAL"),
+        ]:
+            if not _has_column("observations", col):
+                self._conn.execute(ddl)
+
+        # V4: decay_base = pico de retrieval_strength (nunca decae); backfill con el valor actual
         self._conn.execute(
-            "INSERT OR IGNORE INTO meta (key, value) VALUES ('schema_version', '3')")
+            "UPDATE observations SET decay_base = retrieval_strength WHERE decay_base IS NULL")
+
+        self._conn.execute("""CREATE TABLE IF NOT EXISTS observation_links (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            obs_a_id INTEGER NOT NULL,
+            obs_b_id INTEGER NOT NULL,
+            weight REAL DEFAULT 0.1,
+            coactivation_count INTEGER DEFAULT 0,
+            successful_coactivations INTEGER DEFAULT 0,
+            failed_coactivations INTEGER DEFAULT 0,
+            last_coactivated_at TEXT,
+            created_at TEXT DEFAULT (datetime('now')),
+            UNIQUE(obs_a_id, obs_b_id))""")
+        self._conn.execute("""CREATE TABLE IF NOT EXISTS contradictions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            obs_a_id INTEGER NOT NULL,
+            obs_b_id INTEGER NOT NULL,
+            conflict_type TEXT,
+            status TEXT DEFAULT 'open',
+            detected_at TEXT,
+            detected_by TEXT,
+            resolution TEXT,
+            resolved_at TEXT,
+            superseded_id INTEGER)""")
+        self._conn.execute("""CREATE TABLE IF NOT EXISTS consolidations (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            title TEXT,
+            kind TEXT,
+            summary TEXT,
+            source_ids TEXT,
+            importance REAL DEFAULT 0.5,
+            confidence REAL DEFAULT 0.6,
+            project TEXT,
+            topic_key TEXT,
+            status TEXT DEFAULT 'pending',
+            created_at TEXT DEFAULT (datetime('now')))""")
+        self._conn.execute(
+            "INSERT OR REPLACE INTO meta (key, value) VALUES ('schema_version', '4')")
+        self._conn.commit()
+
+        # ---- V5: Experience Memory (experiencias validadas -> patrones -> reuso) ----
+        self._conn.execute("""CREATE TABLE IF NOT EXISTS experiences (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            situation TEXT NOT NULL, reasoning TEXT, conclusion TEXT, action TEXT, outcome TEXT,
+            reward_signal REAL DEFAULT 0.0,
+            validation_status TEXT DEFAULT 'unverified',   -- unverified|attempted|partial|verified|failed
+            confidence REAL DEFAULT 0.4, importance REAL DEFAULT 0.3,
+            successful_retrievals INTEGER DEFAULT 0, failed_retrievals INTEGER DEFAULT 0,
+            agent TEXT, project TEXT, topic_key TEXT,
+            created_at TEXT DEFAULT (datetime('now')), last_used_at TEXT)""")
+        self._conn.execute("""CREATE TABLE IF NOT EXISTS patterns (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            title TEXT, description TEXT, check_procedure TEXT,
+            confidence REAL DEFAULT 0.5, importance REAL DEFAULT 0.4,
+            source_experience_ids TEXT,                    -- JSON array
+            created_at TEXT DEFAULT (datetime('now')))""")
+        self._conn.execute("""CREATE TABLE IF NOT EXISTS experience_links (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            exp_a_id INTEGER NOT NULL, exp_b_id INTEGER NOT NULL,
+            weight REAL DEFAULT 0.1, coactivation_count INTEGER DEFAULT 0,
+            last_coactivated_at TEXT, created_at TEXT DEFAULT (datetime('now')),
+            UNIQUE(exp_a_id, exp_b_id))""")
+        self._conn.execute("""CREATE TABLE IF NOT EXISTS experience_observation_links (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            experience_id INTEGER NOT NULL, observation_id INTEGER NOT NULL,
+            weight REAL DEFAULT 0.1, coactivation_count INTEGER DEFAULT 0,
+            created_at TEXT DEFAULT (datetime('now')),
+            UNIQUE(experience_id, observation_id))""")
+        self._conn.execute(
+            "INSERT OR REPLACE INTO meta (key, value) VALUES ('schema_version', '5')")
+        self._conn.commit()
+
+        # ---- V6: Multidimensional Memory (cues descompuestos, salience, anchors) ----
+        # Columnas nuevas en experiences (guarded ALTER via _has_column).
+        for col, ddl in [
+            ("salience", "ALTER TABLE experiences ADD COLUMN salience REAL DEFAULT 0.0"),
+            ("summary", "ALTER TABLE experiences ADD COLUMN summary TEXT"),
+            ("entities", "ALTER TABLE experiences ADD COLUMN entities TEXT"),
+            ("concepts", "ALTER TABLE experiences ADD COLUMN concepts TEXT"),
+            ("files", "ALTER TABLE experiences ADD COLUMN files TEXT"),
+            ("temporal_context", "ALTER TABLE experiences ADD COLUMN temporal_context TEXT"),
+            ("session_id", "ALTER TABLE experiences ADD COLUMN session_id TEXT"),
+            ("quest_id", "ALTER TABLE experiences ADD COLUMN quest_id TEXT"),
+            ("retrieval_anchors", "ALTER TABLE experiences ADD COLUMN retrieval_anchors TEXT"),
+            # FIX 3 (Tywin): dimensiones independientes — cada una evoluciona por su senal,
+            # NUNCA atadas a confidence (association_strength = avg de pesos de experience_links;
+            # retrieval_strength = reuso exitoso/fallido; frequency = veces reusada).
+            ("association_strength", "ALTER TABLE experiences ADD COLUMN association_strength REAL DEFAULT 0.5"),
+            ("retrieval_strength", "ALTER TABLE experiences ADD COLUMN retrieval_strength REAL DEFAULT 0.5"),
+            ("frequency", "ALTER TABLE experiences ADD COLUMN frequency INTEGER DEFAULT 0"),
+        ]:
+            if not _has_column("experiences", col):
+                self._conn.execute(ddl)
+        self._conn.execute("""CREATE TABLE IF NOT EXISTS experience_cues (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            experience_id INTEGER NOT NULL,
+            component_type TEXT NOT NULL,   -- project|agent|concept|technology|problem|error|action|reasoning|solution|result|validation|temporal|file|quest|session|entity|pattern|anchor
+            value TEXT NOT NULL,
+            cue_quality REAL DEFAULT 0.5,
+            source TEXT DEFAULT 'extracted', -- extracted|generated|manual
+            created_at TEXT DEFAULT (datetime('now')),
+            UNIQUE(experience_id, component_type, value))""")
+        self._conn.execute(
+            "INSERT OR REPLACE INTO meta (key, value) VALUES ('schema_version', '6')")
+        self._conn.commit()
+
+        # ---- V7: Episode Pattern Completion (reactivacion post-retrieval) ----
+        # Columnas de reactivacion en experience_cues (guarded ALTER via _has_column).
+        # 'recordar tambien modifica la memoria': un cue que participa en una
+        # recuperacion exitosa acumula coactivation_count y last_coactivated_at.
+        for col, ddl in [
+            ("coactivation_count", "ALTER TABLE experience_cues ADD COLUMN coactivation_count INTEGER DEFAULT 0"),
+            ("last_coactivated_at", "ALTER TABLE experience_cues ADD COLUMN last_coactivated_at TEXT"),
+        ]:
+            if not _has_column("experience_cues", col):
+                self._conn.execute(ddl)
+        self._conn.execute(
+            "INSERT OR REPLACE INTO meta (key, value) VALUES ('schema_version', '7')")
         self._conn.commit()
 
     # ---------- AGENTS ----------
@@ -429,10 +619,10 @@ class ArnesBrain:
         ev_json = json.dumps(evidence, ensure_ascii=False) if evidence else ""
         cur = self._conn.execute(
             "INSERT INTO observations (agent, topic_key, type, content, quest_id, score, tags, "
-            "memory_kind, confidence, storage_strength, retrieval_strength, volatility, state, "
-            "evidence, source) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            "memory_kind, confidence, storage_strength, retrieval_strength, decay_base, volatility, state, "
+            "evidence, source) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
             (agent, topic_key, type, content, quest_id, int(score), tags_json, kind, conf,
-             0.4 if kind != "episodic" else 0.35, 0.6, volatility, "active", ev_json, source or ""))
+             0.4 if kind != "episodic" else 0.35, 0.6, 0.6, volatility, "active", ev_json, source or ""))
         obs_id = cur.lastrowid
         self._conn.commit()
         self._schedule_review(obs_id, importance=int(score), volatility=volatility, confidence=conf)
@@ -506,12 +696,15 @@ class ArnesBrain:
             scored.append(r)
         scored.sort(key=lambda x: x["_recall_score"], reverse=True)
         top = scored[:limit]
-        # practica de recuperacion: sube retrieval_strength del usado
+        # practica de recuperacion: sube retrieval_strength del usado (y su pico decay_base)
         for r in top:
             new_rs = min(1.0, float(r.get("retrieval_strength", 0.6)) + 0.05)
+            old_base = float(r["decay_base"]) if r.get("decay_base") is not None else float(r.get("retrieval_strength", 0.6))
+            base = max(old_base, new_rs)
             self._conn.execute(
-                "UPDATE observations SET retrieval_strength=?, last_retrieved_at=datetime('now') WHERE id=?",
-                (new_rs, r["id"]))
+                "UPDATE observations SET retrieval_strength=?, decay_base=?, "
+                "last_retrieved_at=datetime('now') WHERE id=?",
+                (new_rs, base, r["id"]))
         self._conn.commit()
         return top
 
@@ -563,10 +756,11 @@ class ArnesBrain:
             "INSERT INTO observation_revisions (observation_id, content, type) VALUES (?,?,?)",
             (obs_id, row["content"], row["type"]))
         ev_json = json.dumps(evidence, ensure_ascii=False) if evidence else row["evidence"]
+        base = float(row["decay_base"]) if row["decay_base"] is not None else float(row["retrieval_strength"])
         self._conn.execute(
-            "UPDATE observations SET content=?, evidence=?, "
+            "UPDATE observations SET content=?, evidence=?, decay_base=?, "
             "storage_strength=?, state='active' WHERE id=?",
-            (new_content, ev_json, min(0.99, float(row["storage_strength"]) + 0.05), obs_id))
+            (new_content, ev_json, base, min(0.99, float(row["storage_strength"]) + 0.05), obs_id))
         self._conn.commit()
         return True
 
@@ -1223,6 +1417,1802 @@ class ArnesBrain:
             "agents_active": agents,
         }
 
+    # ---------- OSMA V4: MEMORIA ASOCIATIVA (co-activacion, activacion, consolidacion) ----------
+    _VOL_LAMBDAS = {"immutable": 365.0, "stable": 90.0, "slow": 45.0, "dynamic": 14.0, "ephemeral": 5.0}
+
+    @staticmethod
+    def _parse_dt(s):
+        """Parsea 'YYYY-MM-DD HH:MM:SS' o 'YYYY-MM-DD' (tolerando 'T' separador). None si falla."""
+        if not s:
+            return None
+        s = str(s).strip().replace("T", " ")
+        for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d"):
+            try:
+                return datetime.datetime.strptime(s, fmt)
+            except ValueError:
+                continue
+        return None
+
+    # OSMA V4 API - 15 métodos: 11 públicos osma_* + 4 helpers privados _*
+    #   públicos:  osma_migrate, osma_link, osma_recall, osma_reinforce, osma_context,
+    #              osma_contradictions, osma_contradiction_resolve, osma_sleep,
+    #              osma_consolidations, osma_consolidation_finalize, osma_stats
+    #   privados:  _entity_tokens, _shared_entity_count, _upsert_link, _spreading_activation
+    @staticmethod
+    def _entity_tokens(content, tags, topic_key):
+        """Tokens-entidad deterministas: minusculas, >=3 chars, sin stopwords. Sin libs externas."""
+        tag_str = ""
+        if tags:
+            if isinstance(tags, str):
+                try:
+                    parsed = json.loads(tags)
+                    tag_str = " ".join(parsed) if isinstance(parsed, list) else tags
+                except Exception:
+                    tag_str = tags
+            elif isinstance(tags, (list, tuple)):
+                tag_str = " ".join(str(t) for t in tags)
+        text = " ".join([content or "", tag_str, topic_key or ""]).lower()
+        tokens = re.findall(r"[a-z\u00e1\u00e9\u00ed\u00f3\u00fa\u00f1\u00fc0-9]+", text)
+        return sorted({t for t in tokens if len(t) >= 3 and t not in _OSMA_STOPWORDS})
+
+    def _shared_entity_count(self, row_a, row_b):
+        ea = set(self._entity_tokens(row_a.get("content"), row_a.get("tags"), row_a.get("topic_key")))
+        eb = set(self._entity_tokens(row_b.get("content"), row_b.get("tags"), row_b.get("topic_key")))
+        return len(ea & eb)
+
+    def _project_name(self):
+        try:
+            return os.path.basename(os.path.dirname(os.path.dirname(os.path.abspath(self.db_path))))
+        except Exception:
+            return ""
+
+    @staticmethod
+    def _has_conflict_signal(text):
+        """Senales de contradiccion: stems de cambio + palabras de negacion (con frontera)."""
+        t = (text or "").lower()
+        stems = ["migr", "reemplaz", "deprecad", "sustitu", "ya no", "no usar", "no funciona",
+                 "no aplica", "deja de", "dejo de", "eliminar", "quitar", "evitar", "rompe",
+                 "ya no se usa", "no se usa", "cancelad", "revertir", "invalida", "contradic"]
+        for s in stems:
+            if s in t:
+                return True
+        for w in ("no", "nunca", "jamas", "falso", "incorrecto", "imposible"):
+            if re.search(r"\b" + re.escape(w) + r"\b", t):
+                return True
+        return False
+
+    def _upsert_link(self, a_id, b_id, delta=0.1, coact=0, succ=0, fail=0, now=None):
+        """Crea o fortalece un link associativo (undirected; UNIQUE obs_a_id < obs_b_id)."""
+        a_id, b_id = int(a_id), int(b_id)
+        lo, hi = (a_id, b_id) if a_id < b_id else (b_id, a_id)
+        row = self._conn.execute(
+            "SELECT * FROM observation_links WHERE obs_a_id=? AND obs_b_id=?", (lo, hi)).fetchone()
+        ts = now or datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None).strftime("%Y-%m-%d %H:%M:%S")
+        if row:
+            new_w = max(0.0, min(1.0, float(row["weight"]) + delta))
+            self._conn.execute(
+                "UPDATE observation_links SET weight=?, coactivation_count=coactivation_count+?, "
+                "successful_coactivations=successful_coactivations+?, "
+                "failed_coactivations=failed_coactivations+?, last_coactivated_at=? WHERE id=?",
+                (new_w, coact, succ, fail, ts, row["id"]))
+            return row["id"]
+        self._conn.execute(
+            "INSERT INTO observation_links (obs_a_id, obs_b_id, weight, coactivation_count, "
+            "successful_coactivations, failed_coactivations, last_coactivated_at, created_at) "
+            "VALUES (?,?,?,?,?,?,?,?)",
+            (lo, hi, max(0.0, min(1.0, delta)), coact, succ, fail, ts, ts))
+        return self._conn.execute("SELECT last_insert_rowid() AS id").fetchone()["id"]
+
+    def _link_on_write(self, obs_id, content, tags, topic_key):
+        """Post-save: enlaza la observacion nueva con activas que compartan >=2 entidades."""
+        try:
+            new_entities = set(self._entity_tokens(content, tags, topic_key))
+        except Exception:
+            return 0
+        if not new_entities:
+            return 0
+        candidates = [dict(r) for r in self._conn.execute(
+            "SELECT id, content, tags, topic_key FROM observations "
+            "WHERE archived=0 AND state NOT IN ('archived','superseded') AND id != ? ORDER BY id",
+            (obs_id,))]
+        linked = 0
+        for c in candidates:
+            c_entities = set(self._entity_tokens(c["content"], c["tags"], c["topic_key"]))
+            if len(new_entities & c_entities) >= 2:
+                self._upsert_link(obs_id, c["id"], delta=0.1, coact=1)
+                linked += 1
+        if linked:
+            self._conn.commit()
+        return linked
+
+    def osma_migrate(self):
+        """Backfill V4+V5 idempotente: observation_links (>=2 entidades) + experience_links (>=2 entidades).
+        El return conserva schema_version '4' byte-identico (compat con tests V4); la meta del
+        cerebro queda en '5' (los nuevos campos V5 se reportan aparte)."""
+        rows = [dict(r) for r in self._conn.execute(
+            "SELECT id, content, tags, topic_key FROM observations "
+            "WHERE archived=0 AND state NOT IN ('archived','superseded') ORDER BY id")]
+        linked = 0
+        for i in range(len(rows)):
+            for j in range(i + 1, len(rows)):
+                if self._shared_entity_count(rows[i], rows[j]) >= 2:
+                    self._upsert_link(rows[i]["id"], rows[j]["id"], delta=0.1)
+                    linked += 1
+        # V5: enlazar experiencias existentes que compartan >=2 entidades
+        exps = [dict(r) for r in self._conn.execute(
+            "SELECT * FROM experiences ORDER BY id")]
+        exp_linked = 0
+        for i in range(len(exps)):
+            for j in range(i + 1, len(exps)):
+                if self._shared_entity_count(self._exp_as_obs_row(exps[i]),
+                                             self._exp_as_obs_row(exps[j])) >= 2:
+                    self._upsert_experience_link(exps[i]["id"], exps[j]["id"], delta=0.1)
+                    exp_linked += 1
+        # V6: descomponer las experiencias existentes en cues (idempotente:
+        #     INSERT OR IGNORE por UNIQUE(experience_id, component_type, value)).
+        self._conn.execute("INSERT OR REPLACE INTO meta (key, value) VALUES ('schema_version', '6')")
+        analyze = self.osma_experience_analyze()
+        # V7: columnas de reactivacion en experience_cues (guarded; idempotente sobre la
+        #     migracion hecha por _migrate al abrir la db).
+        def _has_column(table, col):
+            return any(r["name"] == col for r in self._conn.execute("PRAGMA table_info(%s)" % table))
+        for col, ddl in [
+            ("coactivation_count", "ALTER TABLE experience_cues ADD COLUMN coactivation_count INTEGER DEFAULT 0"),
+            ("last_coactivated_at", "ALTER TABLE experience_cues ADD COLUMN last_coactivated_at TEXT"),
+        ]:
+            if not _has_column("experience_cues", col):
+                self._conn.execute(ddl)
+        self._conn.execute("INSERT OR REPLACE INTO meta (key, value) VALUES ('schema_version', '7')")
+        self._conn.commit()
+        return {"schema_version": "4", "links_backfilled": linked, "observations_scanned": len(rows),
+                "experience_links_backfilled": exp_linked, "experiences_scanned": len(exps),
+                "experiences_analyzed": analyze["experiences_analyzed"],
+                "cues_created": analyze["cues_created"],
+                "cues_updated": analyze["cues_updated"],
+                "anchors_created": analyze["anchors_created"],
+                "cues_reactivation_ready": True}
+
+    def osma_link(self, new_id, recalled_ids, signal="coactivation", quest_id=None, agent=None):
+        """Co-activacion: fortalece links entre la memoria nueva y las recuperadas."""
+        deltas = {"coactivation": 0.1, "success": 0.15, "correction": 0.05, "same_quest": 0.1}
+        delta = deltas.get(signal, 0.1)
+        coact = 1 if signal in ("coactivation", "same_quest") else 0
+        succ = 1 if signal == "success" else 0
+        fail = 1 if signal == "correction" else 0
+        try:
+            new_id = int(new_id)
+        except (TypeError, ValueError):
+            return {"linked": 0}
+        if not self._conn.execute("SELECT id FROM observations WHERE id=?", (new_id,)).fetchone():
+            return {"linked": 0}
+        n = 0
+        for rid in (recalled_ids or []):
+            try:
+                rid = int(rid)
+            except (TypeError, ValueError):
+                continue
+            if rid == new_id:
+                continue
+            self._upsert_link(new_id, rid, delta=delta, coact=coact, succ=succ, fail=fail)
+            n += 1
+        self._conn.commit()
+        return {"linked": n}
+
+    def _spreading_activation(self, seed_ids, budget=12):
+        """BFS por waves sobre observation_links (undirected): act_child = act_parent * 0.8 * weight.
+        Para en 0.25. No atraviesa archivadas/superseded. Budget = max resultados a coleccionar."""
+        activation = {}
+        queue = []
+        for sid in seed_ids:
+            if activation.get(sid, 0.0) < 1.0:
+                activation[sid] = 1.0
+                queue.append(sid)
+        blocked = ("archived", "superseded")
+        expanded = 0
+        max_expansions = max(200, budget * 40)
+        while queue and expanded < max_expansions:
+            current = queue.pop(0)
+            expanded += 1
+            act = activation.get(current, 0.0)
+            if act < 0.25:
+                continue
+            for link in self._conn.execute(
+                    "SELECT obs_a_id, obs_b_id, weight FROM observation_links "
+                    "WHERE obs_a_id=? OR obs_b_id=?", (current, current)):
+                other = link["obs_b_id"] if link["obs_a_id"] == current else link["obs_a_id"]
+                row = self._conn.execute(
+                    "SELECT archived, state FROM observations WHERE id=?", (other,)).fetchone()
+                if not row or row["archived"] == 1 or row["state"] in blocked:
+                    continue
+                child = act * 0.8 * float(link["weight"])
+                if child < 0.25:
+                    continue
+                if child > activation.get(other, 0.0):
+                    activation[other] = child
+                    queue.append(other)
+        return activation
+
+    def osma_recall(self, query, agent=None, limit=5, tag=None):
+        """Recall + activacion propagada: misma forma que recall() mas campo activation (0..1)."""
+        results = self.recall(query, agent=agent, limit=limit, tag=tag)
+        seed_ids = [int(r["id"]) for r in results]
+        budget = max(12, limit)
+        activation = self._spreading_activation(seed_ids, budget=budget) if seed_ids else {}
+        seen = set(seed_ids)
+        out = []
+        for r in results:
+            r["activation"] = round(activation.get(r["id"], 1.0), 4)
+            out.append(r)
+        for nid, act_val in sorted(activation.items(), key=lambda kv: kv[1], reverse=True):
+            if nid in seen or len(out) >= budget:
+                continue
+            row = self._conn.execute("SELECT * FROM observations WHERE id=?", (nid,)).fetchone()
+            if not row:
+                continue
+            d = dict(row)
+            d["activation"] = round(act_val, 4)
+            out.append(d)
+            seen.add(nid)
+        return out
+
+    def osma_reinforce(self, obs_id, success=True):
+        """Refuerzo de utilidad: exito sube recuperaciones/importancia/retrieval; fallo baja confianza."""
+        row = self._conn.execute("SELECT * FROM observations WHERE id=?", (obs_id,)).fetchone()
+        if not row:
+            return {"ok": False, "id": obs_id, "state": "not_found"}
+        if success:
+            succ = int(row["successful_retrievals"]) + 1
+            score = min(5, int(row["score"]) + 1)
+            new_rs = min(1.0, float(row["retrieval_strength"]) + 0.05)
+            old_base = float(row["decay_base"]) if row["decay_base"] is not None else float(row["retrieval_strength"])
+            base = max(old_base, new_rs)
+            state = row["state"]
+            self._conn.execute(
+                "UPDATE observations SET successful_retrievals=?, score=?, retrieval_strength=?, decay_base=? "
+                "WHERE id=?",
+                (succ, score, new_rs, base, obs_id))
+        else:
+            conf = max(0.05, float(row["confidence"]) - 0.05)
+            state = "contested" if float(row["confidence"]) >= 0.6 else row["state"]
+            self._conn.execute(
+                "UPDATE observations SET confidence=?, state=? WHERE id=?",
+                (conf, state, obs_id))
+        self._conn.commit()
+        return {"ok": True, "id": obs_id, "state": state}
+
+    def osma_context(self, query, project=None, agent=None, max_tokens=6000):
+        """Paquete de recall contextual (lo que ARGOS inyecta al prompt), bajo max_tokens."""
+        def _tok(x):
+            return len(json.dumps(x, ensure_ascii=False)) // 4
+
+        package = {"project": project, "direct": [], "associations": [], "decisions": [],
+                   "errors_solutions": [], "agents": [], "contradictions": []}
+        pool = self.recall(query, agent=agent, limit=10)
+        direct = pool[:5]
+        package["direct"] = direct
+        seed_ids = [int(r["id"]) for r in direct]
+        act = self._spreading_activation(seed_ids, budget=8) if seed_ids else {}
+        for nid, act_val in sorted(act.items(), key=lambda kv: kv[1], reverse=True):
+            if nid in seed_ids or len(package["associations"]) >= 8:
+                continue
+            row = self._conn.execute("SELECT * FROM observations WHERE id=?", (nid,)).fetchone()
+            if row:
+                d = dict(row)
+                d["activation"] = round(act_val, 4)
+                package["associations"].append(d)
+        package["decisions"] = [r for r in pool if r.get("type") in ("decision", "verdict")][:3]
+        package["errors_solutions"] = [r for r in pool if r.get("type") in ("bugfix", "discovery", "action")][:3]
+        package["agents"] = [dict(r) for r in self._conn.execute(
+            "SELECT id, class, role, trust_score, xp, level FROM agents "
+            "ORDER BY trust_score DESC LIMIT 5")]
+        package["contradictions"] = [dict(r) for r in self._conn.execute(
+            "SELECT c.id, c.conflict_type, c.status, c.detected_at, "
+            "a.topic_key AS topic_a, a.content AS content_a, a.agent AS agent_a, "
+            "b.topic_key AS topic_b, b.content AS content_b, b.agent AS agent_b "
+            "FROM contradictions c LEFT JOIN observations a ON a.id=c.obs_a_id "
+            "LEFT JOIN observations b ON b.id=c.obs_b_id "
+            "WHERE c.status='open' LIMIT 3")]
+        trim_order = ["associations", "errors_solutions", "agents", "contradictions",
+                      "decisions", "direct"]
+        while _tok(package) > max_tokens:
+            trimmed = False
+            for k in trim_order:
+                if package[k]:
+                    package[k].pop()
+                    trimmed = True
+                    break
+            if not trimmed:
+                break
+        return package
+
+    def osma_contradictions(self, status="open"):
+        sql = ("SELECT c.*, a.topic_key AS topic_a, a.content AS content_a, a.agent AS agent_a, "
+               "a.confidence AS conf_a, b.topic_key AS topic_b, b.content AS content_b, "
+               "b.agent AS agent_b, b.confidence AS conf_b "
+               "FROM contradictions c "
+               "LEFT JOIN observations a ON a.id=c.obs_a_id "
+               "LEFT JOIN observations b ON b.id=c.obs_b_id")
+        params = []
+        if status:
+            sql += " WHERE c.status=?"
+            params.append(status)
+        sql += " ORDER BY c.id DESC LIMIT 50"
+        return [dict(r) for r in self._conn.execute(sql, params)]
+
+    def osma_contradiction_resolve(self, cid, winner_id, evidence=None):
+        row = self._conn.execute("SELECT * FROM contradictions WHERE id=?", (cid,)).fetchone()
+        if not row:
+            return {"ok": False, "error": "contradiction no existe"}
+        winner_id = int(winner_id)
+        if row["obs_a_id"] != winner_id and row["obs_b_id"] != winner_id:
+            return {"ok": False, "error": "winner_id no es parte de la contradiccion"}
+        loser_id = row["obs_b_id"] if row["obs_a_id"] == winner_id else row["obs_a_id"]
+        loser = self._conn.execute("SELECT * FROM observations WHERE id=?", (loser_id,)).fetchone()
+        winner = self._conn.execute("SELECT * FROM observations WHERE id=?", (winner_id,)).fetchone()
+        if loser:
+            self._conn.execute(
+                "UPDATE observations SET state='superseded', supersedes=? WHERE id=?",
+                (winner_id, loser_id))
+        if loser and winner:
+            self.add_edge(loser["topic_key"], winner["topic_key"], "replaced_by", agent="osma")
+        self._conn.execute(
+            "UPDATE contradictions SET status='resolved', resolution=?, resolved_at=datetime('now'), "
+            "superseded_id=? WHERE id=?",
+            (evidence or "", loser_id if loser else None, cid))
+        self._conn.commit()
+        return {"ok": True, "superseded": loser_id if loser else None}
+
+    def osma_sleep(self, hours=24, now=None):
+        """Consolidacion completa (el sueno): decay, transiciones, dedup, contradicciones, links debiles."""
+        now_dt = self._parse_dt(now) or datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
+        now_iso = now_dt.strftime("%Y-%m-%d %H:%M:%S")
+        stats = {"decayed": 0, "transitioned": 0, "deduped": 0, "consolidated": 0,
+                 "contradictions_detected": 0, "links_weakened": 0}
+
+        # (a) decay persistido de retrieval_strength (misma formula que _effective_retrieval).
+        #     Base estable: decay_base (pico, nunca decae) -> sleeps repetidos no componen decay.
+        for r in [dict(x) for x in self._conn.execute("SELECT * FROM observations")]:
+            lam = self._VOL_LAMBDAS.get(r.get("volatility", "stable"), 90.0)
+            last = r.get("last_retrieved_at")
+            base = float(r["decay_base"]) if r.get("decay_base") is not None else float(r.get("retrieval_strength", 0.6))
+            eff = base
+            if last:
+                last_dt = self._parse_dt(last)
+                if last_dt:
+                    days = max(0.0, (now_dt - last_dt).total_seconds() / 86400.0)
+                    eff = base * (2.0 ** (-days / lam))
+            self._conn.execute(
+                "UPDATE observations SET retrieval_strength=?, last_decay_at=? WHERE id=?",
+                (round(eff, 4), now_iso, r["id"]))
+            stats["decayed"] += 1
+
+        # (b) transiciones: active -> dormant (inactividad segun volatilidad); dormant -> archived si baja importancia
+        inactivity_days = {"immutable": 365, "stable": 90, "slow": 45, "dynamic": 14, "ephemeral": 5}
+        for r in [dict(x) for x in self._conn.execute("SELECT * FROM observations")]:
+            if r["state"] == "active" and r["archived"] == 0:
+                ref = self._parse_dt(r.get("last_retrieved_at") or r.get("created_at"))
+                if not ref:
+                    continue
+                if (now_dt - ref).total_seconds() / 86400.0 > inactivity_days.get(r.get("volatility", "stable"), 90):
+                    self._conn.execute("UPDATE observations SET state='dormant' WHERE id=?", (r["id"],))
+                    stats["transitioned"] += 1
+            elif r["state"] == "dormant" and r["archived"] == 0 and int(r.get("score", 0)) <= 2:
+                self._conn.execute("UPDATE observations SET state='archived', archived=1 WHERE id=?", (r["id"],))
+                stats["transitioned"] += 1
+
+        # (c) dedup de observaciones casi identicas (mismo topic_key + >=3 entidades) -> consolidations
+        active_rows = [dict(x) for x in self._conn.execute(
+            "SELECT * FROM observations WHERE archived=0 AND state NOT IN ('archived','superseded') ORDER BY id")]
+        by_topic = {}
+        for r in active_rows:
+            by_topic.setdefault(r["topic_key"], []).append(r)
+        for topic_key, group in by_topic.items():
+            if len(group) < 2:
+                continue
+            consumed = set()
+            for i in range(len(group)):
+                if i in consumed:
+                    continue
+                cluster = [group[i]]
+                for j in range(i + 1, len(group)):
+                    if j in consumed:
+                        continue
+                    a, b = group[i], group[j]
+                    if self._has_conflict_signal(a.get("content", "")) or self._has_conflict_signal(b.get("content", "")):
+                        continue  # pares con senal de contradiccion no son duplicados
+                    if self._shared_entity_count(a, b) >= 3:
+                        cluster.append(b)
+                        consumed.add(j)
+                if len(cluster) < 2:
+                    continue
+                consumed.add(i)
+                parts = [(s.get("content") or "")[:200] for s in cluster[:5]]
+                summary = "{0}: {1}".format(topic_key, " · ".join(parts))
+                imp = round(sum(float(s.get("score", 0)) for s in cluster) / len(cluster), 2)
+                conf = round(sum(float(s.get("confidence", 0.5)) for s in cluster) / len(cluster), 2)
+                self._conn.execute(
+                    "INSERT INTO consolidations (title, kind, summary, source_ids, importance, confidence, "
+                    "project, topic_key, status) VALUES (?,?,?,?,?,?,?,?,'pending')",
+                    (topic_key, cluster[0].get("type", "episodic"), summary,
+                     json.dumps([s["id"] for s in cluster], ensure_ascii=False), imp, conf,
+                     self._project_name(), topic_key))
+                for s in cluster:
+                    self._conn.execute("UPDATE observations SET archived=1, state='archived' WHERE id=?", (s["id"],))
+                stats["deduped"] += 1
+                stats["consolidated"] += len(cluster)
+
+        # (d) deteccion de contradicciones (mismo topic_key o >=2 entidades; conf >= 0.6; senales de conflicto)
+        pair_pool = [dict(x) for x in self._conn.execute(
+            "SELECT * FROM observations WHERE archived=0 AND state NOT IN ('archived','superseded') ORDER BY id")]
+        for i in range(len(pair_pool)):
+            for j in range(i + 1, len(pair_pool)):
+                a, b = pair_pool[i], pair_pool[j]
+                if float(a.get("confidence", 0)) < 0.6 or float(b.get("confidence", 0)) < 0.6:
+                    continue
+                same_topic = a["topic_key"] == b["topic_key"]
+                if not (same_topic or self._shared_entity_count(a, b) >= 2):
+                    continue
+                if not (self._has_conflict_signal(a.get("content", "")) or self._has_conflict_signal(b.get("content", ""))):
+                    continue
+                dup = self._conn.execute(
+                    "SELECT id FROM contradictions WHERE status='open' AND "
+                    "((obs_a_id=? AND obs_b_id=?) OR (obs_a_id=? AND obs_b_id=?))",
+                    (a["id"], b["id"], b["id"], a["id"])).fetchone()
+                if dup:
+                    continue
+                self._conn.execute(
+                    "INSERT INTO contradictions (obs_a_id, obs_b_id, conflict_type, status, detected_at, detected_by) "
+                    "VALUES (?,?,?,'open',?,'osma-sleep')",
+                    (a["id"], b["id"], "same_topic" if same_topic else "shared_entities", now_iso))
+                stats["contradictions_detected"] += 1
+
+        # (e) debilitar links estancos: weight *= 0.995 por periodo inactivo (hours).
+        #     periods = segundos / (hours*3600): con hours=24, 1 dia inactivo = 1 periodo exacto.
+        for l in [dict(x) for x in self._conn.execute("SELECT * FROM observation_links")]:
+            last = self._parse_dt(l.get("last_coactivated_at"))
+            if not last:
+                continue
+            periods = int((now_dt - last).total_seconds() / (max(1.0, float(hours)) * 3600.0))
+            if periods >= 1:
+                new_w = max(0.01, float(l["weight"]) * (0.995 ** periods))
+                self._conn.execute("UPDATE observation_links SET weight=? WHERE id=?", (round(new_w, 4), l["id"]))
+                stats["links_weakened"] += 1
+
+        self._conn.commit()
+        return stats
+
+    def osma_consolidations(self, status=None):
+        sql = "SELECT * FROM consolidations"
+        params = []
+        if status:
+            sql += " WHERE status=?"
+            params.append(status)
+        sql += " ORDER BY id DESC LIMIT 50"
+        return [dict(r) for r in self._conn.execute(sql, params)]
+
+    def osma_consolidation_finalize(self, cid, summary):
+        row = self._conn.execute("SELECT * FROM consolidations WHERE id=?", (cid,)).fetchone()
+        if not row:
+            return {"ok": False, "error": "no existe"}
+        self._conn.execute("UPDATE consolidations SET summary=?, status='done' WHERE id=?", (summary, cid))
+        self._conn.commit()
+        return {"ok": True, "id": cid, "status": "done"}
+
+    def osma_stats(self):
+        def _c(sql, *params):
+            return self._conn.execute(sql, params).fetchone()[0]
+        links = [dict(r) for r in self._conn.execute("SELECT weight FROM observation_links")]
+        avg = round(sum(float(l["weight"]) for l in links) / len(links), 4) if links else 0.0
+        return {
+            "links": len(links),
+            "avg_link_weight": avg,
+            "active": _c("SELECT COUNT(*) FROM observations WHERE state='active' AND archived=0"),
+            "warm": _c("SELECT COUNT(*) FROM observations WHERE state='dormant'"),
+            "cold": 0,
+            "archived": _c("SELECT COUNT(*) FROM observations WHERE archived=1 OR state='archived'"),
+            "contradictions_open": _c("SELECT COUNT(*) FROM contradictions WHERE status='open'"),
+            "consolidations_pending": _c("SELECT COUNT(*) FROM consolidations WHERE status='pending'"),
+        }
+
+    # OSMA V5 API - Experience Memory (experiencias validadas -> patrones -> reuso)
+    #   publicos: osma_experience_record, osma_experience_validate, osma_experience_search,
+    #             osma_pattern_detect, osma_experience_reuse, osma_experience_stats
+    #   privados: _clamp, _experience_text, _experience_entities, _exp_as_obs_row,
+    #             _upsert_experience_link, _patterns_for_experience, _superseded_by_newer,
+    #             _experience_applicability
+    @staticmethod
+    def _clamp(v, lo=0.0, hi=1.0):
+        """Acota un valor numerico a [lo, hi]."""
+        return max(lo, min(hi, float(v)))
+
+    @staticmethod
+    def _status_from_reward(reward):
+        """Taxonomia V5 completa (6 estados) desde reward:
+        proposal (0.0) | hypothesis (0<r<0.4) | attempted (-0.6<=r<0)
+        | partial (0.4<=r<0.9) | verified (r>=0.9) | failed (r<-0.6)."""
+        if reward < -0.6:
+            return "failed"
+        if reward < 0:
+            return "attempted"
+        if reward == 0:
+            return "proposal"
+        if reward < 0.4:
+            return "hypothesis"
+        if reward < 0.9:
+            return "partial"
+        return "verified"
+
+    @staticmethod
+    def _dt_ts(s):
+        """Timestamp unix de 'YYYY-MM-DD HH:MM:SS' para ranking por recencia (0.0 si no parsea)."""
+        dt = ArnesBrain._parse_dt(s)
+        return dt.timestamp() if dt else 0.0
+
+    @staticmethod
+    def _days_since(created_at, now=None):
+        """Dias transcurridos desde created_at ('YYYY-MM-DD HH:MM:SS'). None si no parsea."""
+        dt = ArnesBrain._parse_dt(created_at)
+        if dt is None:
+            return None
+        now_dt = now or datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
+        return max(0.0, (now_dt - dt).total_seconds() / 86400.0)
+
+    @staticmethod
+    def _competition_score(exp, k, project, now=None):
+        """Tie-breaker compuesto (V7 audit Tywin — competition_between_memories).
+        episode_activation_score es el factor PRIMARIO del ranking; este score solo
+        ordena resultados con activacion igual/cercana. Componentes:
+          recency_norm      = 1/(1+days) desde created_at (reciente = mayor)
+          importance        = importance de la experiencia (0..1)
+          project_match     = 1.0 si query.project coincide con el proyecto, 0.5
+                              neutro si el query no trae project, 0.0 si difiere
+          episode_coherence = 1.0 si k>=3 cues matcheados, si no k/3 (episodios
+                              multi-cue coherentes rankean mas alto)
+        Pesos W_* documentados como tunables en el modulo."""
+        days = ArnesBrain._days_since(exp.get("created_at"), now)
+        recency_norm = 1.0 / (1.0 + days) if days is not None else 0.5
+        importance = float(exp.get("importance") or 0.0)
+        if project:
+            project_match = 1.0 if exp.get("project") == project else 0.0
+        else:
+            project_match = 0.5
+        coherence = 1.0 if k >= 3 else (k / 3.0)
+        return (recency_norm * _W_RECENCY + importance * _W_IMPORTANCE
+                + project_match * _W_PROJECT + coherence * _W_COHERENCE)
+
+    @staticmethod
+    def _experience_text(situation, reasoning="", conclusion="", action="", outcome="", topic_key=""):
+        """Texto plano de la experiencia: fuente de extraccion de entidades (mismo tokenizer V4)."""
+        return " ".join([situation or "", reasoning or "", conclusion or "",
+                         action or "", outcome or "", topic_key or ""])
+
+    def _experience_entities(self, situation, reasoning="", conclusion="", action="",
+                             outcome="", topic_key=""):
+        """Entidades de una experiencia via _entity_tokens (misma logica de stopwords V4)."""
+        text = self._experience_text(situation, reasoning, conclusion, action, outcome, topic_key)
+        return set(self._entity_tokens(text, None, topic_key))
+
+    def _exp_as_obs_row(self, exp):
+        """Pseudo-fila de observacion para reusar _shared_entity_count (solapamiento >=2)."""
+        return {"content": self._experience_text(exp.get("situation"), exp.get("reasoning"),
+                                                 exp.get("conclusion"), exp.get("action"),
+                                                 exp.get("outcome")),
+                "tags": None, "topic_key": exp.get("topic_key")}
+
+    def _upsert_experience_link(self, a_id, b_id, delta=0.1, coact=0, now=None):
+        """Crea o fortalece un link experiencia-experiencia (undirected; UNIQUE exp_a_id < exp_b_id)."""
+        a_id, b_id = int(a_id), int(b_id)
+        lo, hi = (a_id, b_id) if a_id < b_id else (b_id, a_id)
+        row = self._conn.execute(
+            "SELECT * FROM experience_links WHERE exp_a_id=? AND exp_b_id=?", (lo, hi)).fetchone()
+        ts = now or datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None).strftime("%Y-%m-%d %H:%M:%S")
+        if row:
+            new_w = max(0.0, min(1.0, float(row["weight"]) + delta))
+            self._conn.execute(
+                "UPDATE experience_links SET weight=?, coactivation_count=coactivation_count+?, "
+                "last_coactivated_at=? WHERE id=?",
+                (new_w, coact, ts, row["id"]))
+            return row["id"]
+        self._conn.execute(
+            "INSERT INTO experience_links (exp_a_id, exp_b_id, weight, coactivation_count, "
+            "last_coactivated_at, created_at) VALUES (?,?,?,?,?,?)",
+            (lo, hi, max(0.0, min(1.0, delta)), coact, ts, ts))
+        return self._conn.execute("SELECT last_insert_rowid() AS id").fetchone()["id"]
+
+    def _patterns_for_experience(self, exp_id, patterns=None):
+        """Patrones cuyo source_experience_ids contiene a exp_id (solo ids JSON validos)."""
+        out = []
+        for p in (patterns if patterns is not None else
+                  [dict(r) for r in self._conn.execute("SELECT * FROM patterns ORDER BY id")]):
+            try:
+                ids = json.loads(p.get("source_experience_ids") or "[]")
+            except Exception:
+                continue
+            if exp_id in ids:
+                out.append(p)
+        return out
+
+    def _superseded_by_newer(self, exp, all_experiences, patterns):
+        """Contradiccion contextual: una experiencia 'verified' MAS NUEVA (reward>0) obsoleta a la
+        actual SOLO si comparte el mismo patron (id) O (mismo proyecto Y >=2 entidades compartidas).
+        Conocimiento no relacionado dentro del mismo proyecto NO se marca obsoleto."""
+        exp_entities = self._experience_entities(
+            exp.get("situation"), exp.get("reasoning"), exp.get("conclusion"),
+            exp.get("action"), exp.get("outcome"), exp.get("topic_key"))
+        exp_pattern_ids = {p["id"] for p in self._patterns_for_experience(exp["id"], patterns)}
+        for other in all_experiences:
+            if other["id"] <= exp["id"]:
+                continue
+            if other.get("validation_status") != "verified":
+                continue
+            if float(other.get("reward_signal", 0.0)) <= 0:
+                continue
+            other_pattern_ids = {p["id"] for p in self._patterns_for_experience(other["id"], patterns)}
+            same_pattern = bool(exp_pattern_ids & other_pattern_ids)
+            same_project = bool(exp.get("project")) and exp.get("project") == other.get("project")
+            other_entities = self._experience_entities(
+                other.get("situation"), other.get("reasoning"), other.get("conclusion"),
+                other.get("action"), other.get("outcome"), other.get("topic_key"))
+            shared = len(exp_entities & other_entities) >= 2
+            if same_pattern or (same_project and shared):
+                return True
+        return False
+
+    def _experience_applicability(self, exp, exp_entities, query_entities, project,
+                                  all_experiences, patterns):
+        """'apply' (verified+reward>0+project match, sin contradiccion nueva)
+        | 'caution' (partial/attempted) | 'obsolete' (failed o superseded)
+        | 'context_mismatch' (proyecto y topico difieren del query)."""
+        status = exp.get("validation_status")
+        if status == "failed":
+            return "obsolete"
+        if self._superseded_by_newer(exp, all_experiences, patterns):
+            return "obsolete"
+        project_matches = (not project) or (exp.get("project") == project)
+        topic_matches = len(query_entities & exp_entities) >= 2
+        if not project_matches and not topic_matches:
+            return "context_mismatch"
+        if status == "verified" and float(exp.get("reward_signal", 0.0)) > 0 and project_matches:
+            return "apply"
+        return "caution"
+
+    def osma_experience_record(self, data):
+        """Registra una experiencia (situation->reasoning->conclusion->action->outcome->reward) y
+        la auto-enlaza con experiencias y observaciones que comparten >=2 entidades.
+        V6: acepta session_id/quest_id/files (JSON array string); tras el insert descompone
+        la experiencia en cues COMPLETOS (base + reasoning/action/concept/pattern/problem/error/
+        solution/result/temporal — FIX 2), computa la saliencia inicial, inicializa
+        association_strength (avg de pesos de experience_links, FIX 3) y refresca cue_quality
+        (IDF) de los cues compartidos con experiencias previas. La descomposicion NUNCA falla
+        el record."""
+        situation = (data.get("situation") or "").strip()
+        if not situation:
+            return {"error": "situation es obligatoria"}
+        reasoning = data.get("reasoning") or ""
+        conclusion = data.get("conclusion") or ""
+        action = data.get("action") or ""
+        outcome = data.get("outcome") or ""
+        reward = self._clamp(float(data.get("reward", 0.0) or 0.0), -1.0, 1.0)
+        agent = data.get("agent")
+        project = data.get("project")
+        topic_key = data.get("topic_key")
+        # Si el caller no especifica validation_status, derivarlo del reward (misma logica que
+        # osma_experience_validate, helper compartido _status_from_reward).
+        if data.get("validation_status"):
+            validation_status = data["validation_status"]
+        else:
+            validation_status = self._status_from_reward(reward)
+        cur = self._conn.execute(
+            "INSERT INTO experiences (situation, reasoning, conclusion, action, outcome, "
+            "reward_signal, validation_status, agent, project, topic_key) VALUES (?,?,?,?,?,?,?,?,?,?)",
+            (situation, reasoning, conclusion, action, outcome, round(reward, 4),
+             validation_status, agent, project, topic_key))
+        exp_id = cur.lastrowid
+        new_entities = self._experience_entities(
+            situation, reasoning, conclusion, action, outcome, topic_key)
+        linked_experiences = 0
+        linked_observations = 0
+        if new_entities:
+            for other in [dict(r) for r in self._conn.execute(
+                    "SELECT * FROM experiences WHERE id != ? ORDER BY id", (exp_id,))]:
+                other_entities = self._experience_entities(
+                    other.get("situation"), other.get("reasoning"), other.get("conclusion"),
+                    other.get("action"), other.get("outcome"), other.get("topic_key"))
+                if len(new_entities & other_entities) >= 2:
+                    self._upsert_experience_link(exp_id, other["id"], delta=0.1, coact=1)
+                    linked_experiences += 1
+            for obs in [dict(r) for r in self._conn.execute(
+                    "SELECT id, content, tags, topic_key FROM observations "
+                    "WHERE archived=0 AND state NOT IN ('archived','superseded') ORDER BY id")]:
+                obs_entities = set(self._entity_tokens(obs.get("content"), obs.get("tags"),
+                                                       obs.get("topic_key")))
+                if len(new_entities & obs_entities) < 2:
+                    continue
+                existing = self._conn.execute(
+                    "SELECT id FROM experience_observation_links "
+                    "WHERE experience_id=? AND observation_id=?",
+                    (exp_id, obs["id"])).fetchone()
+                if existing:
+                    self._conn.execute(
+                        "UPDATE experience_observation_links SET weight=min(1.0, weight+0.1), "
+                        "coactivation_count=coactivation_count+1 WHERE id=?",
+                        (existing["id"],))
+                else:
+                    self._conn.execute(
+                        "INSERT INTO experience_observation_links "
+                        "(experience_id, observation_id, weight, coactivation_count) VALUES (?,?,?,?)",
+                        (exp_id, obs["id"], 0.1, 1))
+                linked_observations += 1
+        self._conn.commit()
+        # ---- V6: saliencia + descomposicion COMPLETA en cues (nunca falla el record) ----
+        # FIX 2 (Tywin): record corre la misma descomposicion completa que analyze
+        # (base + reasoning/action/concept/pattern/problem/error/solution/result/temporal).
+        cues_created = 0
+        salience = 0.3
+        try:
+            salience = self._salience_for(data, validation_status, topic_key)
+            exp = self._conn.execute("SELECT * FROM experiences WHERE id=?", (exp_id,)).fetchone()
+            exp = dict(exp)
+            exp["session_id"] = data.get("session_id")
+            exp["quest_id"] = data.get("quest_id")
+            exp["files"] = data.get("files")
+            for ctype, value, source in self._extract_full_cues(exp):
+                if self._insert_cue(exp_id, ctype, value, source):
+                    cues_created += 1
+            # refrescar cue_quality (IDF) para todos los cues que comparten valor con la nueva
+            self._refresh_cue_qualities(exp_id)
+            self._update_v6_metadata(exp_id)
+            # FIX 3 (Tywin): association_strength = avg de pesos de experience_links (0.5 default).
+            association_strength = self._avg_link_weight(exp_id)
+            self._conn.execute(
+                "UPDATE experiences SET salience=?, association_strength=?, session_id=?, "
+                "quest_id=? WHERE id=?",
+                (round(salience, 4), round(association_strength, 4),
+                 data.get("session_id"), data.get("quest_id"), exp_id))
+            self._conn.commit()
+        except Exception:
+            # la descomposicion JAMAS rompe el record: se registra sin cues
+            try:
+                self._conn.commit()
+            except Exception:
+                pass
+        return {"id": exp_id, "linked_experiences": linked_experiences,
+                "linked_observations": linked_observations,
+                "cues_created": cues_created, "salience": round(salience, 4)}
+
+    def osma_experience_validate(self, data):
+        """Valida con reward real: clamp -1..1, mapa de 6 estados (helper compartido),
+        ajuste de confianza/importancia. reward>=0.4 (partial/verified) sube
+        successful_retrievals (usuario confirma / test pasa / otro agente verifica);
+        reward < 0 sube failed_retrievals.
+        FIX 4 (Tywin): saliencia sube SOLO con senales funcionales verificables — correccion
+        fuerte (reward < -0.6) +0.10, verificacion (reward >= 0.9) +0.05. Saliencia =
+        significancia funcional, NO emocion simulada."""
+        exp_id = int(data.get("id", 0))
+        row = self._conn.execute("SELECT * FROM experiences WHERE id=?", (exp_id,)).fetchone()
+        if not row:
+            return {"ok": False, "id": exp_id, "error": "no existe"}
+        reward = self._clamp(float(data.get("reward", 0.0) or 0.0), -1.0, 1.0)
+        status = self._status_from_reward(reward)
+        conf = self._clamp(float(row["confidence"]) + reward * 0.15, 0.05, 0.95)
+        imp = self._clamp(float(row["importance"]) + reward * 0.05, 0.05, 0.95)
+        failed_retrievals = int(row["failed_retrievals"]) + (1 if reward < 0 else 0)
+        successful_retrievals = int(row["successful_retrievals"]) + (1 if reward >= 0.4 else 0)
+        sal_delta = 0.10 if reward < -0.6 else (0.05 if reward >= 0.9 else 0.0)
+        sal = self._clamp(float(row["salience"] or 0.0) + sal_delta, 0.0, 1.0)
+        self._conn.execute(
+            "UPDATE experiences SET reward_signal=?, validation_status=?, confidence=?, importance=?, "
+            "failed_retrievals=?, successful_retrievals=?, salience=? WHERE id=?",
+            (round(reward, 4), status, round(conf, 4), round(imp, 4), failed_retrievals,
+             successful_retrievals, round(sal, 4), exp_id))
+        self._conn.commit()
+        return {"ok": True, "id": exp_id, "reward_signal": round(reward, 4),
+                "validation_status": status, "confidence": round(conf, 4),
+                "importance": round(imp, 4),
+                "successful_retrievals": successful_retrievals,
+                "failed_retrievals": failed_retrievals,
+                "salience": round(sal, 4)}
+
+    def osma_experience_search(self, query, project=None, agent=None, limit=5):
+        """Recuperacion por experiencias: entidades del query + patrones que matchean + aplicabilidad.
+        Contradiccion contextual: una 'verified' mas nueva obsoleta a la vieja SOLO si comparte
+        patron (id) o (proyecto y >=2 entidades); conocimiento no relacionado no se marca obsoleto."""
+        query_entities = set(self._entity_tokens(query, None, None))
+        all_experiences = [dict(r) for r in self._conn.execute("SELECT * FROM experiences ORDER BY id")]
+        patterns = [dict(r) for r in self._conn.execute("SELECT * FROM patterns ORDER BY id")]
+
+        # (2) patrones cuyo texto (title+description+check_procedure) comparte >=1 entidad con el query
+        matched_patterns = []
+        for p in patterns:
+            p_text = " ".join([p.get("title") or "", p.get("description") or "",
+                               p.get("check_procedure") or ""])
+            p_entities = set(self._entity_tokens(p_text, None, None))
+            if query_entities and p_entities and query_entities & p_entities:
+                matched_patterns.append(p)
+        pattern_sources = {}
+        for p in matched_patterns:
+            try:
+                ids = json.loads(p.get("source_experience_ids") or "[]")
+            except Exception:
+                ids = []
+            for eid in ids:
+                pattern_sources.setdefault(eid, []).append(p)
+
+        # (3) coleccion: match directo de entidades (>=2) o via patron
+        pool = []
+        for e in all_experiences:
+            if agent and e.get("agent") != agent:
+                continue
+            e_entities = self._experience_entities(
+                e.get("situation"), e.get("reasoning"), e.get("conclusion"),
+                e.get("action"), e.get("outcome"), e.get("topic_key"))
+            direct = len(query_entities & e_entities) >= 2
+            via_pattern = e["id"] in pattern_sources
+            if not (direct or via_pattern):
+                continue
+            pats = pattern_sources.get(e["id"], [])
+            source_pattern = pats[0]["title"] if pats else None
+            derived = []
+            for p in pats:
+                try:
+                    derived.extend(json.loads(p.get("source_experience_ids") or "[]"))
+                except Exception:
+                    pass
+            derived_from = sorted(set(derived))
+            applicability = self._experience_applicability(
+                e, e_entities, query_entities, project, all_experiences, patterns)
+            pool.append({"id": e["id"], "situation": e.get("situation"),
+                         "conclusion": e.get("conclusion"), "action": e.get("action"),
+                         "outcome": e.get("outcome"), "reward_signal": e.get("reward_signal"),
+                         "validation_status": e.get("validation_status"),
+                         "confidence": e.get("confidence"),
+                         "successful_retrievals": e.get("successful_retrievals"),
+                         "failed_retrievals": e.get("failed_retrievals"),
+                         "agent": e.get("agent"), "project": e.get("project"),
+                         "topic_key": e.get("topic_key"), "applicability": applicability,
+                         "salience": float(e.get("salience") or 0.0),
+                         "retrieval_routes": self._retrieval_routes(e["id"]),
+                         "source_pattern": source_pattern, "derived_from": derived_from,
+                         "_ts": self._dt_ts(e.get("created_at"))})
+
+        # (5) ranking: apply-verified primero, luego confidence desc, luego recencia desc
+        def _rank_key(r):
+            prio = 0 if (r["validation_status"] == "verified" and float(r["reward_signal"]) > 0
+                         and r["applicability"] == "apply") else 1
+            return (prio, -float(r["confidence"]), -r["_ts"])
+
+        pool.sort(key=_rank_key)
+        for r in pool:
+            r.pop("_ts", None)
+        return pool[:max(0, int(limit))]
+
+    def osma_pattern_detect(self):
+        """Clusteriza experiencias verified/partial con reward>0 por solapamiento de entidades
+        (>=2, union-find sobre pares). Cada cluster >=2 genera o actualiza un patron:
+        title = top-2 entidades compartidas, check_procedure = action de la de mayor confianza."""
+        candidates = [dict(r) for r in self._conn.execute(
+            "SELECT * FROM experiences "
+            "WHERE validation_status IN ('verified','partial') AND reward_signal > 0 ORDER BY id")]
+        n = len(candidates)
+        parent = list(range(n))
+
+        def _find(x):
+            while parent[x] != x:
+                parent[x] = parent[parent[x]]
+                x = parent[x]
+            return x
+
+        def _union(x, y):
+            rx, ry = _find(x), _find(y)
+            if rx != ry:
+                parent[ry] = rx
+
+        for i in range(n):
+            for j in range(i + 1, n):
+                if self._shared_entity_count(self._exp_as_obs_row(candidates[i]),
+                                             self._exp_as_obs_row(candidates[j])) >= 2:
+                    _union(i, j)
+        clusters = {}
+        for i in range(n):
+            clusters.setdefault(_find(i), []).append(candidates[i])
+
+        created = 0
+        updated = 0
+        experiences_covered = 0
+        for members in clusters.values():
+            if len(members) < 2:
+                continue
+            experiences_covered += len(members)
+            freq = {}
+            for m in members:
+                for ent in self._experience_entities(
+                        m.get("situation"), m.get("reasoning"), m.get("conclusion"),
+                        m.get("action"), m.get("outcome"), m.get("topic_key")):
+                    freq[ent] = freq.get(ent, 0) + 1
+            top = sorted(freq.items(), key=lambda kv: (-kv[1], kv[0]))[:2]
+            title = " ".join(t for t, _ in top) if top else (members[0].get("topic_key") or "patron")
+            description = " · ".join((m.get("situation") or "")[:200] for m in members[:5])
+            best = max(members, key=lambda m: float(m.get("confidence", 0.0)))
+            check_procedure = best.get("action") or ""
+            source_ids = sorted(m["id"] for m in members)
+            source_json = json.dumps(source_ids, ensure_ascii=False)
+            existing = self._conn.execute(
+                "SELECT id FROM patterns WHERE source_experience_ids=?", (source_json,)).fetchone()
+            if existing:
+                self._conn.execute(
+                    "UPDATE patterns SET title=?, description=?, check_procedure=? WHERE id=?",
+                    (title, description, check_procedure, existing["id"]))
+                updated += 1
+            else:
+                self._conn.execute(
+                    "INSERT INTO patterns (title, description, check_procedure, source_experience_ids) "
+                    "VALUES (?,?,?,?)",
+                    (title, description, check_procedure, source_json))
+                created += 1
+        self._conn.commit()
+        return {"patterns_created": created, "patterns_updated": updated,
+                "experiences_covered": experiences_covered}
+
+    def osma_patterns(self):
+        """Provenance semantica: lista patrones con derived_from (source_experience_ids parseado)
+        y la situation de cada experiencia fuente (truncada a 120 chars)."""
+        out = []
+        for p in [dict(r) for r in self._conn.execute("SELECT * FROM patterns ORDER BY id")]:
+            try:
+                ids = json.loads(p.get("source_experience_ids") or "[]")
+            except Exception:
+                ids = []
+            if not isinstance(ids, list):
+                ids = []
+            sources = []
+            for eid in ids:
+                row = self._conn.execute(
+                    "SELECT id, situation FROM experiences WHERE id=?", (int(eid),)).fetchone()
+                if row:
+                    sit = row["situation"] or ""
+                    sources.append({"id": row["id"], "situation": sit[:120]})
+            out.append({
+                "id": p["id"],
+                "title": p.get("title"),
+                "check_procedure": p.get("check_procedure"),
+                "confidence": p.get("confidence"),
+                "derived_from": ids,
+                "sources": sources,
+            })
+        return out
+
+    def osma_experience_reuse(self, data):
+        """Marca un reuso: success -> successful_retrievals+1, reward_signal>=0.5, confidence+0.05;
+        fail -> failed_retrievals+1, confidence-0.10 y 'verified' degrada a 'attempted'.
+        FIX 3 (Tywin): dimensiones independientes — retrieval_strength +0.05 (success, cap 1.0)
+        / -0.05 (fail, floor 0.0) y frequency+1 en ambos casos (frequency = veces reusada),
+        NUNCA atadas a confidence. FIX 4: salience +0.03 en ambos casos (exito repetido Y
+        fallo repetido son funcionalmente significativos para ARGOS), cap 1.0."""
+        exp_id = int(data.get("id", 0))
+        success = bool(data.get("success", True))
+        row = self._conn.execute("SELECT * FROM experiences WHERE id=?", (exp_id,)).fetchone()
+        if not row:
+            return {"ok": False, "id": exp_id, "error": "no existe"}
+        now = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None).strftime("%Y-%m-%d %H:%M:%S")
+        if success:
+            succ = int(row["successful_retrievals"]) + 1
+            reward = max(float(row["reward_signal"]), 0.5)
+            conf = self._clamp(float(row["confidence"]) + 0.05, 0.05, 0.95)
+            status = row["validation_status"]
+            retr = self._clamp(float(row["retrieval_strength"] or 0.5) + 0.05, 0.0, 1.0)
+            sal = self._clamp(float(row["salience"] or 0.0) + 0.03, 0.0, 1.0)
+            self._conn.execute(
+                "UPDATE experiences SET successful_retrievals=?, reward_signal=?, confidence=?, "
+                "retrieval_strength=?, salience=?, frequency=frequency+1, last_used_at=? WHERE id=?",
+                (succ, round(reward, 4), round(conf, 4), round(retr, 4), round(sal, 4), now, exp_id))
+        else:
+            fail = int(row["failed_retrievals"]) + 1
+            conf = self._clamp(float(row["confidence"]) - 0.10, 0.05, 0.95)
+            status = "attempted" if row["validation_status"] == "verified" else row["validation_status"]
+            retr = self._clamp(float(row["retrieval_strength"] or 0.5) - 0.05, 0.0, 1.0)
+            sal = self._clamp(float(row["salience"] or 0.0) + 0.03, 0.0, 1.0)
+            self._conn.execute(
+                "UPDATE experiences SET failed_retrievals=?, confidence=?, validation_status=?, "
+                "retrieval_strength=?, salience=?, frequency=frequency+1, last_used_at=? WHERE id=?",
+                (fail, round(conf, 4), status, round(retr, 4), round(sal, 4), now, exp_id))
+        updated = self._conn.execute("SELECT * FROM experiences WHERE id=?", (exp_id,)).fetchone()
+        self._conn.commit()
+        return {"ok": True, "id": exp_id,
+                "successful_retrievals": updated["successful_retrievals"],
+                "failed_retrievals": updated["failed_retrievals"],
+                "confidence": updated["confidence"],
+                "retrieval_strength": round(float(updated["retrieval_strength"] or 0.5), 4),
+                "frequency": int(updated["frequency"] or 0),
+                "salience": round(float(updated["salience"] or 0.0), 4)}
+
+    def osma_experience_stats(self):
+        def _c(sql, *params):
+            return self._conn.execute(sql, params).fetchone()[0]
+        avg = _c("SELECT AVG(reward_signal) FROM experiences")
+        # V6: promedio de rutas de recuperacion incluyendo experiencias sin cues (0)
+        total_exps = _c("SELECT COUNT(*) FROM experiences")
+        route_rows = [dict(r) for r in self._conn.execute(
+            "SELECT COUNT(*) AS n FROM experience_cues WHERE cue_quality >= 0.3 "
+            "GROUP BY experience_id")]
+        total_routes = sum(int(r["n"]) for r in route_rows)
+        avg_sal = _c("SELECT AVG(salience) FROM experiences")
+        avg_assoc = _c("SELECT AVG(association_strength) FROM experiences")
+        avg_retr = _c("SELECT AVG(retrieval_strength) FROM experiences")
+        tot_freq = _c("SELECT COALESCE(SUM(frequency),0) FROM experiences")
+        return {
+            "experiences": total_exps,
+            "patterns": _c("SELECT COUNT(*) FROM patterns"),
+            "verified": _c("SELECT COUNT(*) FROM experiences WHERE validation_status='verified'"),
+            "failed": _c("SELECT COUNT(*) FROM experiences WHERE validation_status='failed'"),
+            # 'unverified' se mantiene por compat legacy (filas pre-V5 que puedan existir)
+            "unverified": _c("SELECT COUNT(*) FROM experiences WHERE validation_status='unverified'"),
+            "proposal": _c("SELECT COUNT(*) FROM experiences WHERE validation_status='proposal'"),
+            "hypothesis": _c("SELECT COUNT(*) FROM experiences WHERE validation_status='hypothesis'"),
+            "partial": _c("SELECT COUNT(*) FROM experiences WHERE validation_status='partial'"),
+            "attempted": _c("SELECT COUNT(*) FROM experiences WHERE validation_status='attempted'"),
+            "avg_reward": round(float(avg), 4) if avg is not None else 0.0,
+            "reused_successfully": _c("SELECT COALESCE(SUM(successful_retrievals),0) FROM experiences"),
+            "reused_failed": _c("SELECT COALESCE(SUM(failed_retrievals),0) FROM experiences"),
+            # V6: multidimensional memory metrics
+            "total_cues": _c("SELECT COUNT(*) FROM experience_cues"),
+            "total_anchors": _c("SELECT COUNT(*) FROM experience_cues WHERE component_type='anchor'"),
+            "avg_salience": round(float(avg_sal), 4) if avg_sal is not None else 0.0,
+            "avg_retrieval_routes": round(total_routes / total_exps, 4) if total_exps else 0.0,
+            # FIX 3 (Tywin): dimensiones independientes expuestas en stats
+            "avg_association_strength": round(float(avg_assoc), 4) if avg_assoc is not None else 0.0,
+            "avg_retrieval_strength": round(float(avg_retr), 4) if avg_retr is not None else 0.0,
+            "total_frequency": int(tot_freq),
+        }
+
+    # ---------- OSMA V6 API - Multidimensional Memory (cues, salience, anchors) ----------
+    #   publicos: osma_experience_analyze, osma_cues, osma_cue_search, osma_anchor_add, osma_routes
+    #   privados: _loads_list, _cue_usage_count, _cue_quality, _insert_cue, _refresh_cue_quality,
+    #             _refresh_cue_qualities, _retrieval_routes, _salience_for, _extract_base_cues,
+    #             _extract_analyze_cues, _extract_full_cues, _avg_link_weight,
+    #             _generate_anchors, _update_v6_metadata
+    @staticmethod
+    def _loads_list(raw):
+        """Parsea JSON array (string o lista) a lista de strings. Tolera texto plano."""
+        if raw is None:
+            return []
+        if isinstance(raw, (list, tuple)):
+            return [str(x) for x in raw]
+        if isinstance(raw, str):
+            s = raw.strip()
+            if not s:
+                return []
+            try:
+                parsed = json.loads(s)
+                if isinstance(parsed, list):
+                    return [str(x) for x in parsed]
+            except Exception:
+                pass
+            return [s]
+        return [str(raw)]
+
+    def _cue_usage_count(self, value):
+        """n = numero de experiencias distintas que comparten exactamente ese cue value (IDF)."""
+        row = self._conn.execute(
+            "SELECT COUNT(DISTINCT experience_id) AS n FROM experience_cues WHERE value=?",
+            (value,)).fetchone()
+        return int(row["n"]) if row else 0
+
+    def _cue_quality(self, value):
+        """Calidad del cue (IDF inverso): q = clamp(0.1, 1.0, 1/(1+log(1+n))). Raro = mejor."""
+        n = self._cue_usage_count(value)
+        q = 1.0 / (1.0 + math.log(1.0 + n))
+        return self._clamp(q, 0.1, 1.0)
+
+    def _insert_cue(self, experience_id, component_type, value, source="extracted"):
+        """Inserta un cue si no existe (UNIQUE experience_id/component_type/value) y le
+        calcula cue_quality via IDF. Devuelve True si creo, False si ya existia."""
+        value = str(value)[:512]
+        if not value:
+            return False
+        exists = self._conn.execute(
+            "SELECT id FROM experience_cues WHERE experience_id=? AND component_type=? AND value=?",
+            (experience_id, component_type, value)).fetchone()
+        if exists:
+            self._refresh_cue_quality(exists["id"])
+            return False
+        q = self._cue_quality(value)
+        self._conn.execute(
+            "INSERT INTO experience_cues (experience_id, component_type, value, cue_quality, source) "
+            "VALUES (?,?,?,?,?)",
+            (experience_id, component_type, value, round(q, 4), source))
+        return True
+
+    def _refresh_cue_quality(self, cue_id):
+        """Recomputa cue_quality de UN cue por su valor (IDF actual)."""
+        row = self._conn.execute("SELECT value FROM experience_cues WHERE id=?", (cue_id,)).fetchone()
+        if not row:
+            return 0.0
+        q = self._cue_quality(row["value"])
+        self._conn.execute("UPDATE experience_cues SET cue_quality=? WHERE id=?",
+                           (round(q, 4), cue_id))
+        return round(q, 4)
+
+    def _refresh_cue_qualities(self, exp_id):
+        """UPDATE loop: refresca cue_quality de todos los cues que comparten valor con los
+        cues de la experiencia dada (tras insertar, el conteo IDF incluye la nueva)."""
+        values = [r["value"] for r in self._conn.execute(
+            "SELECT DISTINCT value FROM experience_cues WHERE experience_id=?", (exp_id,))]
+        updated = 0
+        for v in values:
+            q = self._cue_quality(v)
+            cur = self._conn.execute(
+                "UPDATE experience_cues SET cue_quality=? WHERE value=?", (round(q, 4), v))
+            updated += cur.rowcount if cur.rowcount is not None else 0
+        return updated
+
+    def _retrieval_routes(self, experience_id):
+        """rutas de recuperacion = COUNT de cues con cue_quality >= 0.3."""
+        row = self._conn.execute(
+            "SELECT COUNT(*) AS n FROM experience_cues "
+            "WHERE experience_id=? AND cue_quality >= 0.3",
+            (experience_id,)).fetchone()
+        return int(row["n"]) if row else 0
+
+    def _salience_for(self, data, validation_status, topic_key):
+        """Saliencia V6 inicial: base por tipo + ajuste por validacion + arch-decision. Clamp 0..1.
+        La saliencia es SIGNIFICANCIA FUNCIONAL (que tan relevante es el episodio para decidir
+        en ARGOS), NO emocion simulada: sube solo con senales verificables — validacion
+        (osma_experience_validate: correccion fuerte +0.10, verificacion +0.05) y reuso
+        (osma_experience_reuse: exito/fallo repetido +0.03)."""
+        type_name = data.get("type") or ""
+        s = _SALIENCE_BASE.get(type_name, 0.3)
+        if not type_name or type_name not in _SALIENCE_BASE:
+            tk = str(topic_key or "").lower()
+            for k, v in _SALIENCE_BASE.items():
+                if k in tk:
+                    s = v
+                    break
+        if validation_status == "verified":
+            s += 0.15
+        elif validation_status == "failed":
+            s += 0.05
+        if topic_key and "arch-decision" in str(topic_key):
+            s += 0.2
+        return self._clamp(s, 0.0, 1.0)
+
+    def _extract_base_cues(self, exp):
+        """Cues base V6 de una experiencia: project, agent, entities, technologies,
+        validation, quest, session, file. Lista de (component_type, value, source)."""
+        text = self._experience_text(exp.get("situation"), exp.get("reasoning"),
+                                     exp.get("conclusion"), exp.get("action"),
+                                     exp.get("outcome"), exp.get("topic_key")).lower()
+        cues = []
+        project = exp.get("project")
+        if not project and exp.get("topic_key"):
+            project = str(exp["topic_key"]).split("/")[0]
+        if project:
+            cues.append(("project", str(project), "extracted"))
+        if exp.get("agent"):
+            cues.append(("agent", str(exp["agent"]), "extracted"))
+        for ent in sorted(self._experience_entities(
+                exp.get("situation"), exp.get("reasoning"), exp.get("conclusion"),
+                exp.get("action"), exp.get("outcome"), exp.get("topic_key"))):
+            cues.append(("entity", ent, "extracted"))
+        for tech in _TECH_LIST:
+            if tech in text:
+                cues.append(("technology", tech, "extracted"))
+        if exp.get("validation_status"):
+            cues.append(("validation", str(exp["validation_status"]), "extracted"))
+        if exp.get("quest_id"):
+            cues.append(("quest", str(exp["quest_id"]), "extracted"))
+        if exp.get("session_id"):
+            cues.append(("session", str(exp["session_id"]), "extracted"))
+        for f in self._loads_list(exp.get("files")):
+            cues.append(("file", str(f), "extracted"))
+        return cues
+
+    def _extract_analyze_cues(self, exp):
+        """Descomposicion completa V6 (17 tipos de cue): base + problem/error/solution/result/
+        temporal + reasoning/action/concept/pattern. Usada por analyze y por record via
+        _extract_full_cues (FIX 1/FIX 2)."""
+        cues = self._extract_base_cues(exp)
+        situation = (exp.get("situation") or "").lower()
+        text = self._experience_text(exp.get("situation"), exp.get("reasoning"),
+                                     exp.get("conclusion"), exp.get("action"),
+                                     exp.get("outcome"), exp.get("topic_key")).lower()
+        for w in _PROBLEM_WORDS:
+            if w in situation:
+                cues.append(("problem", w, "extracted"))
+        for m in _ERROR_RE.findall(text):
+            cues.append(("error", m.strip(), "extracted"))
+        for phrase in _ERROR_PHRASES:
+            if phrase in text:
+                cues.append(("error", phrase, "extracted"))
+        solution = (exp.get("action") or exp.get("conclusion") or "").strip()
+        if solution:
+            cues.append(("solution", solution[:512], "extracted"))
+        if exp.get("outcome"):
+            cues.append(("result", str(exp["outcome"])[:512], "extracted"))
+        created = exp.get("created_at")
+        if created:
+            cues.append(("temporal", str(created)[:10], "extracted"))
+        # ---- FIX 1 (Tywin): reasoning / action / concept / pattern ----
+        reasoning_text = (exp.get("reasoning") or "").strip()
+        if reasoning_text:
+            cues.append(("reasoning", reasoning_text[:200], "extracted"))
+        action_text = (exp.get("action") or "").strip()
+        if action_text:
+            cues.append(("action", action_text[:512], "extracted"))
+        # concept: tokens-entidad largos (>=5) y conceptuales, fuera de _TECH_LIST.
+        # Los tokens cortos/distintivos quedan como 'entity' (base). El overlap entity+concept
+        # es 'genuinamente distinto' (tipo de cue distinto: token lexico vs termino conceptual).
+        for ent in sorted(self._experience_entities(
+                exp.get("situation"), exp.get("reasoning"), exp.get("conclusion"),
+                exp.get("action"), exp.get("outcome"), exp.get("topic_key"))):
+            if len(ent) >= 5 and ent not in _TECH_LIST:
+                cues.append(("concept", ent, "extracted"))
+        # pattern: patrones cuyo source_experience_ids contiene a esta experiencia, O cuyo
+        # title (tokens >=3 chars) aparece como substring en el texto de la experiencia.
+        pattern_rows = [dict(r) for r in self._conn.execute(
+            "SELECT id, title, source_experience_ids FROM patterns ORDER BY id")]
+        if pattern_rows:
+            exp_id = exp.get("id")
+            for p in pattern_rows:
+                title = (p.get("title") or "").strip()
+                if not title:
+                    continue
+                belongs = False
+                try:
+                    pids = json.loads(p.get("source_experience_ids") or "[]")
+                except Exception:
+                    pids = []
+                if exp_id is not None and exp_id in pids:
+                    belongs = True
+                if not belongs:
+                    title_tokens = [t for t in re.findall(
+                        r"[a-z\u00e1\u00e9\u00ed\u00f3\u00fa\u00f1\u00fc0-9]+", title.lower())
+                        if len(t) >= 3]
+                    if not title_tokens or not any(t in text for t in title_tokens):
+                        continue
+                cues.append(("pattern", title[:512], "extracted"))
+        return cues
+
+    def _extract_full_cues(self, exp):
+        """Descomposicion COMPLETA (base + extendidos) usada por record (FIX 2) y por analyze:
+        mismo resultado que _extract_analyze_cues. Idempotente: _insert_cue no duplica."""
+        return self._extract_analyze_cues(exp)
+
+    def _avg_link_weight(self, experience_id):
+        """FIX 3: association_strength = promedio de pesos de experience_links de la experiencia
+        (0.5 default si no tiene links). Independiente de confidence."""
+        rows = self._conn.execute(
+            "SELECT weight FROM experience_links WHERE exp_a_id=? OR exp_b_id=?",
+            (experience_id, experience_id)).fetchall()
+        if not rows:
+            return 0.5
+        return sum(float(r["weight"]) for r in rows) / len(rows)
+
+    def _generate_anchors(self, exp):
+        """Anclas de recuperacion: aliases estaticos de cues conocidos + tokens distintivos
+        (entity/technology con IDF n <= 3, raros en la DB)."""
+        anchors = []
+        known = set()
+        for row in self._conn.execute(
+                "SELECT value FROM experience_cues WHERE experience_id=?", (exp["id"],)):
+            known.add(str(row["value"]).lower())
+        for cue_value, aliases in _ALIAS_TABLE.items():
+            if cue_value in known:
+                for a in aliases:
+                    if a not in anchors:
+                        anchors.append(a)
+        for row in self._conn.execute(
+                "SELECT value FROM experience_cues WHERE experience_id=? "
+                "AND component_type IN ('entity','technology')", (exp["id"],)):
+            v = str(row["value"])
+            if self._cue_usage_count(v) <= 3:
+                if v not in anchors:
+                    anchors.append(v)
+        return anchors
+
+    def _update_v6_metadata(self, exp_id):
+        """Refresca columnas V6 (entities/concepts/files/temporal_context/summary) desde cues."""
+        exp = self._conn.execute("SELECT * FROM experiences WHERE id=?", (exp_id,)).fetchone()
+        if not exp:
+            return
+        exp = dict(exp)
+        entities = [r["value"] for r in self._conn.execute(
+            "SELECT value FROM experience_cues WHERE experience_id=? AND component_type='entity' "
+            "ORDER BY value", (exp_id,))]
+        concepts = [r["value"] for r in self._conn.execute(
+            "SELECT value FROM experience_cues WHERE experience_id=? AND component_type='technology' "
+            "ORDER BY value", (exp_id,))]
+        files = [r["value"] for r in self._conn.execute(
+            "SELECT value FROM experience_cues WHERE experience_id=? AND component_type='file' "
+            "ORDER BY value", (exp_id,))]
+        temporal = str(exp["created_at"] or "")[:10] or None
+        summary = exp.get("summary") or (exp.get("situation") or "")[:300]
+        self._conn.execute(
+            "UPDATE experiences SET entities=?, concepts=?, files=?, temporal_context=?, summary=? "
+            "WHERE id=?",
+            (json.dumps(entities, ensure_ascii=False), json.dumps(concepts, ensure_ascii=False),
+             json.dumps(files, ensure_ascii=False), temporal, summary, exp_id))
+
+    def osma_experience_analyze(self, experience_id=None):
+        """Descomposicion V6 completa + generacion de anclas:
+        (a) agrega todos los cues faltantes de cada experiencia;
+        (b) recomputa cue_quality (IDF) de todos los cues;
+        (c) para experiencias con retrieval_routes < 3 y (importance >= 0.5 o salience >= 0.6)
+            genera anclas de recuperacion (aliases estaticos + tokens distintivos)."""
+        if experience_id is not None:
+            rows = [dict(r) for r in self._conn.execute(
+                "SELECT * FROM experiences WHERE id=?", (int(experience_id),))]
+        else:
+            rows = [dict(r) for r in self._conn.execute("SELECT * FROM experiences ORDER BY id")]
+        cues_created = 0
+        cues_updated = 0
+        anchors_created = 0
+        routes_now = []
+        for exp in rows:
+            for ctype, value, source in self._extract_full_cues(exp):
+                if self._insert_cue(exp["id"], ctype, value, source):
+                    cues_created += 1
+            values = [r["value"] for r in self._conn.execute(
+                "SELECT DISTINCT value FROM experience_cues WHERE experience_id=?", (exp["id"],))]
+            for v in values:
+                q = self._cue_quality(v)
+                cur = self._conn.execute(
+                    "UPDATE experience_cues SET cue_quality=? WHERE value=?", (round(q, 4), v))
+                cues_updated += cur.rowcount if cur.rowcount is not None else 0
+            self._update_v6_metadata(exp["id"])
+            routes = self._retrieval_routes(exp["id"])
+            if (routes < 3 and (float(exp.get("importance") or 0.0) >= 0.5
+                                or float(exp.get("salience") or 0.0) >= 0.6)):
+                anchor_values = self._loads_list(exp.get("retrieval_anchors"))
+                for a in self._generate_anchors(exp):
+                    if self._insert_cue(exp["id"], "anchor", a, "generated"):
+                        anchors_created += 1
+                        anchor_values.append(a)
+                self._conn.execute(
+                    "UPDATE experiences SET retrieval_anchors=? WHERE id=?",
+                    (json.dumps(anchor_values, ensure_ascii=False), exp["id"]))
+            # backfill saliencia V6 para experiencias que no la tienen (0.0 default)
+            if float(exp.get("salience") or 0.0) == 0.0:
+                sal = self._salience_for({"type": ""}, exp.get("validation_status"),
+                                         exp.get("topic_key"))
+                self._conn.execute("UPDATE experiences SET salience=? WHERE id=?",
+                                   (round(sal, 4), exp["id"]))
+                exp["salience"] = sal
+            routes_now.append({"experience_id": exp["id"],
+                               "retrieval_routes": self._retrieval_routes(exp["id"])})
+        self._conn.commit()
+        return {"experiences_analyzed": len(rows), "cues_created": cues_created,
+                "cues_updated": cues_updated, "anchors_created": anchors_created,
+                "routes_now": routes_now}
+
+    def osma_cues(self, experience_id):
+        """Lista los cues de una experiencia ordenados por cue_quality desc."""
+        exp_id = int(experience_id)
+        cues = [dict(r) for r in self._conn.execute(
+            "SELECT id, component_type, value, cue_quality, source, created_at, "
+            "coactivation_count, last_coactivated_at "
+            "FROM experience_cues WHERE experience_id=? ORDER BY cue_quality DESC, id",
+            (exp_id,))]
+        return {"experience_id": exp_id, "retrieval_routes": self._retrieval_routes(exp_id),
+                "cues": cues}
+
+    def osma_cue_search(self, data):
+        """Convergencia multi-cue + pattern completion (FIX 5, Tywin): CUE -> activar nodos ->
+        PROPAGACION (1 hop via experience_links) -> convergencia -> competencia -> ganador.
+        Cada query cue matchea cues por substring (minusculas); cada experiencia acumula sus
+        cues matcheados con cue_quality. episode_activation_score = sum(q_i) + GAMMA * k^2 *
+        avg(q_i), clamp 0..10. Propagacion: experiencias enlazadas (weight >= 0.1) a una
+        directamente activada se suman al pool con score = activacion_directa * 0.5 * link_weight
+        (decaimiento por distancia y peso) y via_association: true — participan en el ranking
+        como contexto de apoyo, pero SOLO las directas pueden ser winner. total_activated =
+        directas + propagadas.
+        Ranking competitivo (FIX 2, Tywin): episode_activation_score sigue siendo el factor
+        PRIMARIO; se agrega competition_score (recencia + importancia + proyecto + coherencia,
+        pesos W_* tunables) como tie-breaker SOLO entre scores iguales/cercanos.
+        Integracion FTS5 (FIX 3, Tywin): los cues estructurados (experience_cues) son la
+        taxonomia exacta del episodio y se matchean DETERMINISTICAMENTE con LIKE — FTS5 no
+        esta disenado para matching exacto de valores de cue, por eso este es el path primario.
+        Cuando un cue del query NO encuentra ningun hit estructurado, se reusa la capa FTS5
+        existente (recall/observations_fts) para hallar observaciones relacionadas y, via
+        experience_observation_links, experiencias candidatas que entran al pool como
+        via_fts: true (contexto semantico, NUNCA winner por no tener cue directo). Flag
+        _FTS5_FALLBACK permite desactivar el fallback sin tocar el path primario."""
+        query_cues = [str(c).strip().lower() for c in (data.get("cues") or []) if str(c).strip()]
+        if not query_cues:
+            return {"error": "cues es obligatorio (array de strings)"}
+        limit = int(data.get("limit") or 10)
+        project = data.get("project")
+        agent = data.get("agent")
+        all_experiences = [dict(r) for r in self._conn.execute("SELECT * FROM experiences ORDER BY id")]
+        patterns = [dict(r) for r in self._conn.execute("SELECT * FROM patterns ORDER BY id")]
+        query_entities = set(self._entity_tokens(" ".join(query_cues), None, None))
+
+        matched_by_exp = {}
+        structured_hits = set()   # FIX 3: cues con al menos un hit estructurado (LIKE)
+        for c in query_cues:
+            cue_hit = False
+            for row in self._conn.execute(
+                    "SELECT experience_id, component_type, value, cue_quality FROM experience_cues "
+                    "WHERE lower(value) LIKE ?", ("%" + c + "%",)):
+                cue_hit = True
+                eid = row["experience_id"]
+                if project or agent:
+                    exp_row = self._conn.execute(
+                        "SELECT project, agent FROM experiences WHERE id=?", (eid,)).fetchone()
+                    if not exp_row:
+                        continue
+                    if project and exp_row["project"] != project:
+                        continue
+                    if agent and exp_row["agent"] != agent:
+                        continue
+                matched_by_exp.setdefault(eid, []).append({
+                    "component_type": row["component_type"],
+                    "value": row["value"],
+                    "cue_quality": round(float(row["cue_quality"]), 4),
+                })
+            if cue_hit:
+                structured_hits.add(c)
+
+        # ---- activacion directa: convergencia multi-cue por experiencia ----
+        # referencia temporal unica para competition_score (determinismo intra-query)
+        now_dt = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
+        activated = {}
+        direct_scores = {}
+        for eid, matched in matched_by_exp.items():
+            exp = next((e for e in all_experiences if e["id"] == eid), None)
+            if not exp:
+                continue
+            k = len(matched)
+            qualities = [float(m["cue_quality"]) for m in matched]
+            avg_q = sum(qualities) / k if k else 0.0
+            score = sum(qualities) + _GAMMA * (k ** 2) * avg_q
+            score = self._clamp(score, 0.0, 10.0)
+            e_entities = self._experience_entities(
+                exp.get("situation"), exp.get("reasoning"), exp.get("conclusion"),
+                exp.get("action"), exp.get("outcome"), exp.get("topic_key"))
+            applicability = self._experience_applicability(
+                exp, e_entities, query_entities, project, all_experiences, patterns)
+            direct_scores[eid] = score
+            activated[eid] = {
+                "experience_id": eid,
+                "episode_activation_score": round(score, 4),
+                "matched_cues": matched,
+                "k": k,
+                "salience": round(float(exp.get("salience") or 0.0), 4),
+                "validation_status": exp.get("validation_status"),
+                "reward_signal": exp.get("reward_signal"),
+                "applicability": applicability,
+                "summary": exp.get("summary") or (exp.get("situation") or ""),
+                "solution": exp.get("action") or exp.get("conclusion") or "",
+                "outcome": exp.get("outcome") or "",
+                "project": exp.get("project"),
+                "agent": exp.get("agent"),
+                "via_association": False,
+                "_confidence": float(exp.get("confidence") or 0.0),
+                "competition_score": round(self._competition_score(exp, k, project, now_dt), 4),
+            }
+
+        # ---- PROPAGACION asociativa (1 hop): experiencia enlazada -> contexto de apoyo ----
+        if direct_scores:
+            direct_ids = set(direct_scores.keys())
+            placeholders = ",".join("?" * len(direct_ids))
+            link_rows = self._conn.execute(
+                "SELECT exp_a_id, exp_b_id, weight FROM experience_links "
+                "WHERE weight >= 0.1 AND (exp_a_id IN (%s) OR exp_b_id IN (%s))"
+                % (placeholders, placeholders),
+                tuple(direct_ids) + tuple(direct_ids)).fetchall()
+            propagated_pool = {}
+            for lr in link_rows:
+                a, b = lr["exp_a_id"], lr["exp_b_id"]
+                w = float(lr["weight"])
+                if a in direct_ids and b not in direct_ids:
+                    neigh, dscore = b, direct_scores[a]
+                elif b in direct_ids and a not in direct_ids:
+                    neigh, dscore = a, direct_scores[b]
+                else:
+                    continue  # ambos directos (o ninguno): sin propagar
+                # decaimiento por distancia (1 hop *0.5) y por peso del link
+                prop_score = dscore * 0.5 * w
+                if prop_score > propagated_pool.get(neigh, 0.0):
+                    propagated_pool[neigh] = prop_score
+            for neigh, pscore in propagated_pool.items():
+                exp = next((e for e in all_experiences if e["id"] == neigh), None)
+                if not exp:
+                    continue
+                if project and exp.get("project") != project:
+                    continue
+                if agent and exp.get("agent") != agent:
+                    continue
+                e_entities = self._experience_entities(
+                    exp.get("situation"), exp.get("reasoning"), exp.get("conclusion"),
+                    exp.get("action"), exp.get("outcome"), exp.get("topic_key"))
+                applicability = self._experience_applicability(
+                    exp, e_entities, query_entities, project, all_experiences, patterns)
+                activated[neigh] = {
+                    "experience_id": neigh,
+                    "episode_activation_score": round(pscore, 4),
+                    "matched_cues": [],
+                    "k": 0,
+                    "salience": round(float(exp.get("salience") or 0.0), 4),
+                    "validation_status": exp.get("validation_status"),
+                    "reward_signal": exp.get("reward_signal"),
+                    "applicability": applicability,
+                    "summary": exp.get("summary") or (exp.get("situation") or ""),
+                    "solution": exp.get("action") or exp.get("conclusion") or "",
+                    "outcome": exp.get("outcome") or "",
+                    "project": exp.get("project"),
+                    "agent": exp.get("agent"),
+                    "via_association": True,
+                    "_confidence": float(exp.get("confidence") or 0.0),
+                    "competition_score": round(self._competition_score(exp, 0, project, now_dt), 4),
+                }
+
+        # ---- FALLBACK FTS5 (FIX 3, Tywin - fts5_integration): cues SIN match estructurado ----
+        # Diseno deliberado: los cues estructurados (experience_cues) son la taxonomia exacta
+        # del episodio y se matchean DETERMINISTICAMENTE con LIKE (path primario — FTS5 no esta
+        # disenado para matching exacto de valores de cue). Cuando un cue del query NO encuentra
+        # ningun hit estructurado, se reusa la capa FTS5 existente (recall/observations_fts)
+        # para hallar observaciones relacionadas y, via experience_observation_links, experiencias
+        # candidatas que entran al pool como via_fts: true (contexto semantico, participan en el
+        # ranking pero NUNCA son winner por no tener cue directo). Flag _FTS5_FALLBACK permite
+        # desactivar el fallback; try/except lo hace no-fatal.
+        fts_added = 0
+        if _FTS5_FALLBACK:
+            unmatched = [c for c in query_cues if c not in structured_hits]
+            for cue in unmatched[:_FTS5_MAX_UNMATCHED]:
+                try:
+                    obs_rows = self.recall(cue, agent=agent, limit=_FTS5_RECALL_LIMIT)
+                except Exception:
+                    continue  # FTS5 nunca rompe la busqueda
+                for obs in obs_rows:
+                    obs_id = int(obs["id"])
+                    linked = self._conn.execute(
+                        "SELECT experience_id FROM experience_observation_links "
+                        "WHERE observation_id=?", (obs_id,)).fetchall()
+                    for lr in linked:
+                        eid = int(lr["experience_id"])
+                        if eid in activated:
+                            continue  # ya tiene match directo: no degradar
+                        exp = next((e for e in all_experiences if e["id"] == eid), None)
+                        if not exp:
+                            continue
+                        if project and exp.get("project") != project:
+                            continue
+                        if agent and exp.get("agent") != agent:
+                            continue
+                        e_entities = self._experience_entities(
+                            exp.get("situation"), exp.get("reasoning"), exp.get("conclusion"),
+                            exp.get("action"), exp.get("outcome"), exp.get("topic_key"))
+                        applicability = self._experience_applicability(
+                            exp, e_entities, query_entities, project, all_experiences, patterns)
+                        # score modesto (< 1.0, bajo el umbral de winner): contexto semantico
+                        fts_score = self._clamp(
+                            0.3 + float(obs.get("confidence") or 0.5) * 0.4, 0.0, 0.99)
+                        activated[eid] = {
+                            "experience_id": eid,
+                            "episode_activation_score": round(fts_score, 4),
+                            "matched_cues": [],
+                            "k": 0,
+                            "salience": round(float(exp.get("salience") or 0.0), 4),
+                            "validation_status": exp.get("validation_status"),
+                            "reward_signal": exp.get("reward_signal"),
+                            "applicability": applicability,
+                            "summary": exp.get("summary") or (exp.get("situation") or ""),
+                            "solution": exp.get("action") or exp.get("conclusion") or "",
+                            "outcome": exp.get("outcome") or "",
+                            "project": exp.get("project"),
+                            "agent": exp.get("agent"),
+                            "via_association": False,
+                            "via_fts": True,
+                            "_confidence": float(exp.get("confidence") or 0.0),
+                            "competition_score": round(
+                                self._competition_score(exp, 0, project, now_dt), 4),
+                        }
+                        fts_added += 1
+
+        results = list(activated.values())
+        results.sort(key=lambda r: (-r["episode_activation_score"], -r["competition_score"],
+                                    -r["salience"], -r["_confidence"]))
+        results = results[:limit]
+        winner = None
+        # solo las experiencias con match DIRECTO pueden ser winner
+        # (propagadas via_association y FTS via_fts = contexto, nunca winner).
+        for top in results:
+            if top.get("via_association") or top.get("via_fts"):
+                continue
+            if (top["episode_activation_score"] >= 1.0
+                    and top["validation_status"] != "failed"
+                    and top["applicability"] != "obsolete"):
+                winner = {
+                    "experience_id": top["experience_id"],
+                    "episode_activation_score": top["episode_activation_score"],
+                    "confidence": top["_confidence"],
+                    "reconstruction": {
+                        "summary": top["summary"],
+                        "solution": top["solution"],
+                        "outcome": top["outcome"],
+                        "validation": top["validation_status"],
+                    },
+                }
+                break
+        for r in results:
+            r.pop("_confidence", None)
+            r["episode_id"] = self._episode_id(r["experience_id"])
+        # ---- V7: reactivacion post-retrieval (recordar modifica la memoria) ----
+        reactivation = None
+        if winner is not None:
+            winner["episode_id"] = self._episode_id(winner["experience_id"])
+            try:
+                reactivation = self._reactivate(winner["experience_id"], results, activated)
+            except Exception:
+                # V7: un fallo de escritura NUNCA rompe la busqueda — se responde sin refuerzo
+                reactivation = None
+        return {"winner": winner, "total_activated": len(activated), "results": results,
+                "reactivation": reactivation}
+
+    def osma_anchor_add(self, data):
+        """Ancla manual: inserta cue (component_type='anchor', source='manual') y computa
+        cue_quality via IDF. Actualiza experiences.retrieval_anchors (JSON)."""
+        exp_id = int(data.get("experience_id", 0))
+        anchor = str(data.get("anchor") or "").strip()
+        if not anchor:
+            return {"ok": False, "error": "anchor es obligatorio"}
+        row = self._conn.execute("SELECT * FROM experiences WHERE id=?", (exp_id,)).fetchone()
+        if not row:
+            return {"ok": False, "error": "experiencia no existe"}
+        ctype = str(data.get("anchor_type") or "anchor")
+        if self._insert_cue(exp_id, ctype, anchor, "manual"):
+            self._refresh_cue_qualities(exp_id)
+            anchors = self._loads_list(row["retrieval_anchors"])
+            if anchor not in anchors:
+                anchors.append(anchor)
+            self._conn.execute(
+                "UPDATE experiences SET retrieval_anchors=? WHERE id=?",
+                (json.dumps(anchors, ensure_ascii=False), exp_id))
+        self._conn.commit()
+        cue = self._conn.execute(
+            "SELECT id FROM experience_cues WHERE experience_id=? AND component_type=? AND value=?",
+            (exp_id, ctype, anchor)).fetchone()
+        return {"ok": True, "cue_id": cue["id"] if cue else None,
+                "cue_quality": round(self._cue_quality(anchor), 4)}
+
+    def osma_routes(self, experience_id):
+        """Rutas de recuperacion de una experiencia + conteo por tipo + calidad promedio."""
+        exp_id = int(experience_id)
+        rows = [dict(r) for r in self._conn.execute(
+            "SELECT component_type, cue_quality FROM experience_cues WHERE experience_id=?",
+            (exp_id,))]
+        by_type = {}
+        total_q = 0.0
+        for r in rows:
+            by_type[r["component_type"]] = by_type.get(r["component_type"], 0) + 1
+            total_q += float(r["cue_quality"])
+        avg_q = round(total_q / len(rows), 4) if rows else 0.0
+        return {"experience_id": exp_id, "retrieval_routes": self._retrieval_routes(exp_id),
+                "route_count_by_type": by_type, "avg_cue_quality": avg_q}
+
+    # ---------- OSMA V7 API - Episode Pattern Completion (reactivacion + reconstruccion) ----------
+    #   publicos: osma_episode
+    #   privados: _episode_id, _reactivate
+    @staticmethod
+    def _episode_id(eid):
+        """ID visible de episodio: EPISODE_XXXX (zero-padded 4 digitos). Si el id supera
+        9999, se muestra el numero tal cual (el formato :04d no agrega padding de mas)."""
+        return f"EPISODE_{int(eid):04d}"
+
+    def _reactivate(self, winner_id, results, activated):
+        """V7 reactivacion post-retrieval: reforzar la memoria que se acaba de recuperar.
+        1) winner: frequency+1 y retrieval_strength+0.03 (cap 1.0) — recuperar con exito
+           hace el episodio MAS accesible.
+        2) cues del winner que participaron en la recuperacion (matched_cues):
+           coactivation_count+1 y last_coactivated_at=now.
+        3) experience_links winner <-> OTRAS experiencias co-activadas del mismo pool de
+           resultados (directas o via_association, excluyendo al winner): delta +0.05 (cap 1.0)
+           y coactivation_count+1 con last_coactivated_at=now (FIX 1, Tywin: reforzar el link
+           TAMBIEN incrementa su coactivacion — coact=1 en _upsert_experience_link).
+        El caller (osma_cue_search) lo envuelve en try/except: un fallo de escritura nunca
+        debe romper la busqueda."""
+        now = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None).strftime("%Y-%m-%d %H:%M:%S")
+        winner_id = int(winner_id)
+        # 1) winner: frequency+1, retrieval_strength+0.03 (cap 1.0)
+        row = self._conn.execute(
+            "SELECT retrieval_strength FROM experiences WHERE id=?", (winner_id,)).fetchone()
+        if row:
+            new_rs = self._clamp(float(row["retrieval_strength"] or 0.5) + 0.03, 0.0, 1.0)
+            self._conn.execute(
+                "UPDATE experiences SET frequency=frequency+1, retrieval_strength=? WHERE id=?",
+                (round(new_rs, 4), winner_id))
+        # 2) cues matcheados del winner: coactivation_count+1, last_coactivated_at=now
+        cues_reinforced = 0
+        win_entry = activated.get(winner_id)
+        for m in (win_entry.get("matched_cues", []) if isinstance(win_entry, dict) else []):
+            cur = self._conn.execute(
+                "UPDATE experience_cues SET coactivation_count=coactivation_count+1, "
+                "last_coactivated_at=? WHERE experience_id=? AND component_type=? AND value=?",
+                (now, winner_id, m.get("component_type"), m.get("value")))
+            if cur.rowcount:
+                cues_reinforced += 1
+        # 3) links winner <-> otras co-activadas del pool (delta 0.05 cap 1.0, coact +1)
+        reinforced_links = 0
+        for other in results:
+            other_id = int(other.get("experience_id"))
+            if other_id == winner_id:
+                continue
+            self._upsert_experience_link(winner_id, other_id, delta=0.05, coact=1)
+            reinforced_links += 1
+        self._conn.commit()
+        return {"episode_id": self._episode_id(winner_id),
+                "reinforced_links": reinforced_links,
+                "link_coactivation_delta": 1 if reinforced_links else 0,
+                "cues_reinforced": cues_reinforced,
+                "retrieval_strength_delta": 0.03,
+                "frequency_delta": 1}
+
+    def osma_episode(self, experience_id):
+        """V7 reconstruccion completa del episodio (EPISODE_XXXX): todos los campos de la
+        experiencia + cues + rutas + experiencias relacionadas + observaciones relacionadas
+        + patrones. Todo derivado de tablas existentes (no crea nada nuevo)."""
+        exp_id = int(experience_id)
+        row = self._conn.execute("SELECT * FROM experiences WHERE id=?", (exp_id,)).fetchone()
+        if not row:
+            return {"error": f"experiencia {exp_id} no existe"}
+        exp = dict(row)
+        cues = [dict(r) for r in self._conn.execute(
+            "SELECT id, component_type, value, cue_quality, source, coactivation_count, "
+            "last_coactivated_at FROM experience_cues WHERE experience_id=? "
+            "ORDER BY cue_quality DESC, id", (exp_id,))]
+        routes = self.osma_routes(exp_id)
+        link_rows = [dict(r) for r in self._conn.execute(
+            "SELECT * FROM experience_links WHERE exp_a_id=? OR exp_b_id=? "
+            "ORDER BY weight DESC", (exp_id, exp_id))]
+        related_experiences = []
+        for lr in link_rows:
+            other_id = lr["exp_a_id"] if lr["exp_b_id"] == exp_id else lr["exp_b_id"]
+            related_experiences.append({
+                "experience_id": int(other_id),
+                "episode_id": self._episode_id(other_id),
+                "weight": round(float(lr["weight"]), 4),
+                "coactivation_count": int(lr["coactivation_count"] or 0),
+            })
+        related_observations = [{
+            "observation_id": int(o["observation_id"]),
+            "weight": round(float(o["weight"]), 4),
+        } for o in self._conn.execute(
+            "SELECT observation_id, weight FROM experience_observation_links "
+            "WHERE experience_id=? ORDER BY weight DESC", (exp_id,))]
+        patterns = [{"id": p["id"], "title": p.get("title"),
+                     "check_procedure": p.get("check_procedure")}
+                    for p in self._patterns_for_experience(exp_id)]
+        return {
+            "episode_id": self._episode_id(exp_id),
+            "experience_id": exp_id,
+            "summary": exp.get("summary"),
+            "situation": exp.get("situation"),
+            "reasoning": exp.get("reasoning"),
+            "conclusion": exp.get("conclusion"),
+            "action": exp.get("action"),
+            "outcome": exp.get("outcome"),
+            "validation_status": exp.get("validation_status"),
+            "reward_signal": exp.get("reward_signal"),
+            "confidence": exp.get("confidence"),
+            "importance": exp.get("importance"),
+            "salience": exp.get("salience"),
+            "retrieval_strength": exp.get("retrieval_strength"),
+            "frequency": exp.get("frequency"),
+            "association_strength": exp.get("association_strength"),
+            "project": exp.get("project"),
+            "agent": exp.get("agent"),
+            "topic_key": exp.get("topic_key"),
+            "quest_id": exp.get("quest_id"),
+            "session_id": exp.get("session_id"),
+            "files": self._loads_list(exp.get("files")),
+            "temporal_context": exp.get("temporal_context"),
+            "cues": cues,
+            "routes": routes,
+            "related_experiences": related_experiences,
+            "related_observations": related_observations,
+            "patterns": patterns,
+        }
+
     # ---------- EXPORT / IMPORT ----------
     def export_jsonl(self, out_dir):
         """Snapshot portable para git/backup."""
@@ -1319,6 +3309,8 @@ def main():
                 data.get("type", "discovery"), data.get("content", ""), data.get("quest_id"),
                 data.get("score", 0), data.get("tags"), data.get("memory_kind"),
                 data.get("confidence"), data.get("volatility"), data.get("evidence"), data.get("source"))
+        brain._link_on_write(obs_id, data.get("content", ""), data.get("tags"),
+                             data.get("topic_key", "atlas/general"))
         print(json.dumps({"id": obs_id, "status": "saved"}))
 
     elif command == "recall":
@@ -1560,6 +3552,116 @@ def main():
 
     elif command == "graph-stats":
         print(json.dumps(brain.graph_stats(), ensure_ascii=False))
+
+    elif command == "osma-migrate":
+        print(json.dumps(brain.osma_migrate(), ensure_ascii=False))
+
+    elif command == "osma-link":
+        data = _read_json_arg(sys.argv[3] if len(sys.argv) > 3 else "-")
+        print(json.dumps(brain.osma_link(int(data.get("new_id", 0)), data.get("recalled_ids", []),
+                                         signal=data.get("signal", "coactivation"),
+                                         quest_id=data.get("quest_id"), agent=data.get("agent")),
+                         ensure_ascii=False))
+
+    elif command == "osma-recall":
+        query = sys.argv[3]
+        agent = sys.argv[4] if len(sys.argv) > 4 and sys.argv[4] != "-" else None
+        limit = int(sys.argv[5]) if len(sys.argv) > 5 else 5
+        tag = sys.argv[6] if len(sys.argv) > 6 and sys.argv[6] != "-" else None
+        print(json.dumps(brain.osma_recall(query, agent=agent, limit=limit, tag=tag), ensure_ascii=False))
+
+    elif command == "osma-reinforce":
+        data = _read_json_arg(sys.argv[3] if len(sys.argv) > 3 else "-")
+        print(json.dumps(brain.osma_reinforce(int(data.get("id", 0)), bool(data.get("success", True))),
+                         ensure_ascii=False))
+
+    elif command == "osma-context":
+        query = sys.argv[3]
+        project = sys.argv[4] if len(sys.argv) > 4 and sys.argv[4] != "-" else None
+        agent = sys.argv[5] if len(sys.argv) > 5 and sys.argv[5] != "-" else None
+        max_tokens = int(sys.argv[6]) if len(sys.argv) > 6 else 6000
+        print(json.dumps(brain.osma_context(query, project=project, agent=agent, max_tokens=max_tokens),
+                         ensure_ascii=False))
+
+    elif command == "osma-contradictions":
+        st = sys.argv[3] if len(sys.argv) > 3 and sys.argv[3] != "-" else "open"
+        print(json.dumps(brain.osma_contradictions(status=st), ensure_ascii=False))
+
+    elif command == "osma-contradiction-resolve":
+        data = _read_json_arg(sys.argv[3] if len(sys.argv) > 3 else "-")
+        print(json.dumps(brain.osma_contradiction_resolve(int(data.get("id", 0)), int(data.get("winner_id", 0)),
+                                                          evidence=data.get("evidence")), ensure_ascii=False))
+
+    elif command == "osma-sleep":
+        hours = int(sys.argv[3]) if len(sys.argv) > 3 else 24
+        now = sys.argv[4] if len(sys.argv) > 4 and sys.argv[4] != "-" else None
+        print(json.dumps(brain.osma_sleep(hours=hours, now=now), ensure_ascii=False))
+
+    elif command == "osma-consolidations":
+        st = sys.argv[3] if len(sys.argv) > 3 and sys.argv[3] != "-" else None
+        print(json.dumps(brain.osma_consolidations(status=st), ensure_ascii=False))
+
+    elif command == "osma-consolidation-finalize":
+        data = _read_json_arg(sys.argv[3] if len(sys.argv) > 3 else "-")
+        print(json.dumps(brain.osma_consolidation_finalize(int(data.get("id", 0)), data.get("summary", "")),
+                         ensure_ascii=False))
+
+    elif command == "osma-stats":
+        print(json.dumps(brain.osma_stats(), ensure_ascii=False))
+
+    elif command == "osma-experience-record":
+        data = _read_json_arg(sys.argv[3] if len(sys.argv) > 3 else "-")
+        print(json.dumps(brain.osma_experience_record(data), ensure_ascii=False))
+
+    elif command == "osma-experience-validate":
+        data = _read_json_arg(sys.argv[3] if len(sys.argv) > 3 else "-")
+        print(json.dumps(brain.osma_experience_validate(data), ensure_ascii=False))
+
+    elif command == "osma-experience-search":
+        query = sys.argv[3]
+        project = sys.argv[4] if len(sys.argv) > 4 and sys.argv[4] != "-" else None
+        agent = sys.argv[5] if len(sys.argv) > 5 and sys.argv[5] != "-" else None
+        limit = int(sys.argv[6]) if len(sys.argv) > 6 else 5
+        print(json.dumps(brain.osma_experience_search(query, project=project, agent=agent,
+                                                      limit=limit), ensure_ascii=False))
+
+    elif command == "osma-pattern-detect":
+        print(json.dumps(brain.osma_pattern_detect(), ensure_ascii=False))
+
+    elif command == "osma-patterns":
+        print(json.dumps(brain.osma_patterns(), ensure_ascii=False))
+
+    elif command == "osma-experience-reuse":
+        data = _read_json_arg(sys.argv[3] if len(sys.argv) > 3 else "-")
+        print(json.dumps(brain.osma_experience_reuse(data), ensure_ascii=False))
+
+    elif command == "osma-experience-stats":
+        print(json.dumps(brain.osma_experience_stats(), ensure_ascii=False))
+
+    elif command == "osma-experience-analyze":
+        exp_id = int(sys.argv[3]) if len(sys.argv) > 3 and sys.argv[3] != "-" else None
+        print(json.dumps(brain.osma_experience_analyze(exp_id), ensure_ascii=False))
+
+    elif command == "osma-cues":
+        exp_id = int(sys.argv[3])
+        print(json.dumps(brain.osma_cues(exp_id), ensure_ascii=False))
+
+    elif command == "osma-cue-search":
+        data = _read_json_arg(sys.argv[3] if len(sys.argv) > 3 else "-")
+        print(json.dumps(brain.osma_cue_search(data), ensure_ascii=False))
+
+    elif command == "osma-anchor-add":
+        data = _read_json_arg(sys.argv[3] if len(sys.argv) > 3 else "-")
+        print(json.dumps(brain.osma_anchor_add(data), ensure_ascii=False))
+
+    elif command == "osma-routes":
+        exp_id = int(sys.argv[3])
+        print(json.dumps(brain.osma_routes(exp_id), ensure_ascii=False))
+
+    elif command == "osma-episode":
+        data = _read_json_arg(sys.argv[3] if len(sys.argv) > 3 else "-")
+        exp_id = int(data.get("experience_id", 0)) if isinstance(data, dict) else int(data)
+        print(json.dumps(brain.osma_episode(exp_id), ensure_ascii=False))
 
     else:
         print(json.dumps({"error": f"comando desconocido: {command}"}))
