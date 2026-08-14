@@ -1,4 +1,4 @@
-# atlas-orchestrator.ps1 - B5 Wired orchestration using all harness scripts
+﻿# atlas-orchestrator.ps1 - B5 Wired orchestration using all harness scripts
 # =============================================
 # Glues together: quest-detector -> model-router -> loop-engine -> circuit-breaker
 # Demonstrates the full harness flow.
@@ -17,6 +17,8 @@ param(
     [switch]$AutoExecute,
     [switch]$Status,
     [switch]$Json,
+    [ValidateSet("always","auto","off")]
+    [string]$Gate = "auto",
     [string]$ArnesDir = "",
     [switch]$NoAutoLoop,
     [int]$MaxChainSteps = 5
@@ -63,6 +65,32 @@ if ($Status) {
     exit 0
 }
 
+# Encoding-robust: PS 5.1 cachea el encoding del host en el PRIMER Write-Host;
+# setear [Console]::OutputEncoding despues no tiene efecto. Forzamos consola
+# UTF-8 ANTES de cualquier output humano para que la caja de recomendacion
+# (box-drawing, acentos) renderice limpia. En -Json no hay Write-Host: intacto.
+$prevConsoleEncoding = $null
+if (-not $Json) {
+    try {
+        $prevConsoleEncoding = [Console]::OutputEncoding
+        [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+    } catch {}
+}
+
+# === Quest Gate resolution (CLI -Gate > preferences.json quest_gate > default auto) ===
+$resolvedGate = "auto"
+$prefsFile = Join-Path $ArnesDir "preferences.json"
+if ($PSBoundParameters.ContainsKey("Gate")) {
+    $resolvedGate = $Gate
+} elseif (Test-Path $prefsFile) {
+    try {
+        $prefs = Get-Content -LiteralPath $prefsFile -Raw -Encoding UTF8 | ConvertFrom-Json
+        if ($prefs.quest_gate -and ($prefs.quest_gate -in @("always","auto","off"))) {
+            $resolvedGate = [string]$prefs.quest_gate
+        }
+    } catch {}
+}
+
 # === Quest mode ===
 if (-not $Quest) {
     Write-Error "Quest required (or use -Status)"
@@ -70,17 +98,92 @@ if (-not $Quest) {
 }
 
 # Step 1: Detect quest type
-Write-Host ""
-Write-Host "  Step 1: Quest Detection" -ForegroundColor Cyan
-$qdOutput = & $QD -Prompt $Quest -Json 2>&1
+if (-not $Json) {
+    Write-Host ""
+    Write-Host "  Step 1: Quest Detection" -ForegroundColor Cyan
+}
+$qdOutput = & $QD -Prompt $Quest -Json -Recommend 2>&1
 $questInfo = $qdOutput | ConvertFrom-Json
-Write-Host "  Type:     $($questInfo.quest_type)" -ForegroundColor White
-Write-Host "  Party:    $($questInfo.suggested_party -join ', ')" -ForegroundColor White
-Write-Host "  L0:       $($questInfo.is_l0)" -ForegroundColor $(if ($questInfo.is_l0) { "Red" } else { "White" })
-Write-Host ""
+if (-not $Json) {
+    Write-Host "  Type:     $($questInfo.quest_type)" -ForegroundColor White
+    Write-Host "  Party:    $($questInfo.suggested_party -join ', ')" -ForegroundColor White
+    Write-Host "  L0:       $($questInfo.is_l0)" -ForegroundColor $(if ($questInfo.is_l0) { "Red" } else { "White" })
+    Write-Host ""
+}
 
-# L0 pause
-if ($questInfo.is_l0 -and -not $AutoExecute) {
+# === Quest Recommendation Gate ===
+$gateCancelled = $false
+
+if ($resolvedGate -ne "off" -and -not $Json) {
+    $rec = $questInfo.recommendation
+    Write-Host ("╔" + ("═" * 43) + "╗") -ForegroundColor Cyan
+    Write-Host ("║ {0,-41} ║" -f "[ATLAS] RECOMENDACIÓN DE QUEST") -ForegroundColor Yellow
+    if ($rec) {
+        Write-Host ("║ {0,-41} ║" -f (" Tipo: $($questInfo.quest_type) ($($questInfo.confidence) keywords)")) -ForegroundColor White
+        $shortParty = ($questInfo.suggested_party -join " + ")
+        if ($shortParty.Length -gt 41) { $shortParty = $shortParty.Substring(0, 38) + "..." }
+        Write-Host ("║ {0,-41} ║" -f (" Party sugerido: $shortParty")) -ForegroundColor Yellow
+        $mpK = [int][math]::Round($questInfo.estimated_mp / 1000)
+        $costTxt = " Costo est.: $mpK" + "K tokens · ~$" + ("{0:N2}" -f $rec.estimated_cost_usd)
+        Write-Host ("║ {0,-41} ║" -f $costTxt) -ForegroundColor Yellow
+        $l0Txt = "no"; if ($questInfo.is_l0) { $l0Txt = "sí" }
+        Write-Host ("║ {0,-41} ║" -f (" Complejidad: $($questInfo.complexity) · L0: $l0Txt · Gate: $($rec.gate)")) -ForegroundColor White
+    } else {
+        Write-Host ("║ {0,-41} ║" -f " (sin recommendation - detector sin -Recommend)") -ForegroundColor DarkGray
+    }
+    Write-Host ("║ {0,-41} ║" -f " → ¿Ejecutar? (sí / ajustar / no)") -ForegroundColor Yellow
+    Write-Host ("╚" + ("═" * 43) + "╝") -ForegroundColor Cyan
+    Write-Host ""
+}
+
+# -Json mode: no prompt; emit recommendation JSON and exit (callers decide).
+# Aplica SIEMPRE con -Json (incluyendo -Gate off): nunca cae a model routing/loop.
+if ($Json) {
+    $jsonGateResult = @{
+        quest_info = $questInfo
+        gate = $resolvedGate
+        recommendation = $questInfo.recommendation
+        timestamp = (Get-Date).ToString("o")
+    }
+    $jsonGateResult | ConvertTo-Json -Depth 6
+    exit 0
+}
+
+# Gate decision: prompt or auto-proceed
+$shouldPrompt = $false
+if ($resolvedGate -eq "always") {
+    $shouldPrompt = $true
+} elseif ($resolvedGate -eq "auto") {
+    if ($questInfo.recommendation -and $questInfo.recommendation.gate -eq "required") {
+        $shouldPrompt = $true
+    } else {
+        Write-Host "  → Ejecutando (modo auto)" -ForegroundColor DarkGray
+    }
+}
+
+if ($shouldPrompt) {
+    if ($AutoExecute) {
+        Write-Host "  [GATE] -AutoExecute activo: sin prompt, se procede." -ForegroundColor DarkGray
+    } else {
+        $answer = Read-Host "  ¿Ejecutar? (sí / ajustar / no)"
+        if ($answer -match '^(s[ií]?|yes|y)$') {
+            Write-Host "  [GATE] Quest aprobada. Procediendo." -ForegroundColor Green
+        } elseif ($answer -match '^(a|ajustar|adjust)$') {
+            Write-Host "  [GATE] Quest marcada para ajuste. Ajusta el prompt y reintenta." -ForegroundColor Yellow
+            $gateCancelled = $true
+        } else {
+            Write-Host "  [GATE] Quest cancelada por el usuario. Nada se ejecutó." -ForegroundColor Yellow
+            $gateCancelled = $true
+        }
+    }
+}
+
+if ($gateCancelled) {
+    exit 0
+}
+
+# Legacy L0 pause (solo con gate off; en always/auto el gate ya lo maneja)
+if ($resolvedGate -eq "off" -and $questInfo.is_l0 -and -not $AutoExecute) {
     Write-Host "  [L0 PAUSE] This is an L0 quest. User confirmation required." -ForegroundColor Red
     Write-Host "  Re-run with -AutoExecute to proceed." -ForegroundColor DarkGray
     exit 0
@@ -229,15 +332,3 @@ if ($AutoExecute) {
     Write-Host "    pwsh cli/loop-engine.ps1 -Action quest-done -Verdict PASS -AgentUsed vivi -TokensUsed 4500 -EvidencePackPath .arnes\\runs\\Q-001\\evidence.json -AuditVerdictPath .arnes\\runs\\Q-001\\verdict.json" -ForegroundColor Yellow
 }
 Write-Host ""
-
-# === Output JSON mode ===
-if ($Json) {
-    $result = @{
-        quest_info = $questInfo
-        blocked_agents = $blockedAgents
-        platform = $Platform
-        tier = $Tier
-        timestamp = (Get-Date).ToString("o")
-    }
-    $result | ConvertTo-Json -Depth 5
-}

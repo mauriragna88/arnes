@@ -1,21 +1,36 @@
-# quest-detector.ps1 - B2 Classify user prompt into quest type + suggested party
+﻿# quest-detector.ps1 - B2 Classify user prompt into quest type + suggested party
 # =============================================
 # Detects quest_type (frontend/backend/fix/architecture/research/devops/boss)
 # Returns JSON with: quest_type, complexity, suggested_party, is_l0, estimated_hp/mp
+# With -Recommend adds a recommendation block (gate required/auto_pass, cost, risk).
 #
 # Usage:
 #   .\quest-detector.ps1 -Prompt "crea login form con Zod"
 #   .\quest-detector.ps1 -Prompt "..." -Json
+#   .\quest-detector.ps1 -Prompt "..." -Recommend
 
 #Requires -Version 5.1
 [CmdletBinding()]
 param(
     [string]$Prompt = "",
     [switch]$Json,
-    [switch]$Silent
+    [switch]$Silent,
+    [switch]$Recommend
 )
 
 $ErrorActionPreference = "Stop"
+
+# Encoding-robust: PS 5.1 cachea el encoding del host en el PRIMER Write-Host;
+# setear [Console]::OutputEncoding despues no tiene efecto. Forzamos consola
+# UTF-8 ANTES de cualquier output humano para que la caja no-ASCII (box-drawing,
+# acentos) renderice limpia. El JSON path (-Json) no usa Write-Host: queda intacto.
+$prevConsoleEncoding = $null
+if (-not $Json -and -not $Silent) {
+    try {
+        $prevConsoleEncoding = [Console]::OutputEncoding
+        [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+    } catch {}
+}
 
 if (-not $Prompt) {
     Write-Error "Prompt required"
@@ -169,8 +184,57 @@ $result = @{
     timestamp = (Get-Date).ToString("o")
 }
 
+# === Recommendation block (only when -Recommend) ===
+if ($Recommend) {
+    # Costo estimado: 1K tokens ~ $0.005 -> MP*0.0005 centavos, redondeado a 2 decimales.
+    # Suma epsilon para evitar que el float 0.015 -> 0.01 (banker's rounding).
+    $costCents = [int][math]::Round($estimatedMP * 0.0005 + 0.000001)
+    $estimatedCostUsd = $costCents / 100.0
+
+    $risk = "none"
+    if ($isL0) {
+        $risk = "L0"
+    } elseif ($complexity -in @("complex","boss")) {
+        $risk = "medium"
+    }
+
+    $gate = "auto_pass"
+    if ($isL0 -or $complexity -in @("complex","boss")) {
+        $gate = "required"
+    }
+
+    $agentLabels = @{
+        "vivi" = "Vivi (Mage)"
+        "eiko" = "Eiko (Cleric)"
+        "ansem" = "Ansem (Paladin)"
+        "kuja" = "Kuja (Rogue)"
+        "amarant" = "Amarant (Monk)"
+        "eremez" = "Eremez (Ranger)"
+        "auron" = "Auron (Warden)"
+        "bran" = "Bran (Seer)"
+        "quina" = "Quina (Banker)"
+        "varys" = "Varys (Spider)"
+        "tywin" = "Tywin (Verifier)"
+        "sam" = "Sam (Counselor)"
+    }
+    $labelParts = foreach ($a in $suggestedParty) {
+        if ($agentLabels.ContainsKey($a)) { $agentLabels[$a] } else { $a }
+    }
+    $partyLabel = $labelParts -join " + "
+
+    $recommendation = @{
+        title = "Quest candidata detectada"
+        party_label = $partyLabel
+        estimated_cost_usd = $estimatedCostUsd
+        risk = $risk
+        gate = $gate
+        message = "Esto parece trabajo para quest: $bestType. Party sugerido: $($suggestedParty -join ', '). ¿Ejecutar?"
+    }
+    $result.recommendation = $recommendation
+}
+
 if ($Json) {
-    $result | ConvertTo-Json -Depth 4
+    $result | ConvertTo-Json -Depth 5
     exit 0
 }
 
@@ -186,4 +250,27 @@ if (-not $Silent) {
     Write-Host "  Estimated HP:  $estimatedHP" -ForegroundColor DarkGray
     Write-Host "  Estimated MP:  $estimatedMP tokens" -ForegroundColor DarkGray
     Write-Host ""
+}
+
+# === Human recommendation block (only when -Recommend) ===
+# El encoding UTF-8 ya se fijo al inicio del script (antes del primer Write-Host).
+if ($Recommend -and -not $Silent) {
+    $mpK = [int][math]::Round($estimatedMP / 1000)
+    $shortParty = ($suggestedParty -join " + ")
+    if ($shortParty.Length -gt 41) { $shortParty = $shortParty.Substring(0, 38) + "..." }
+    $l0Txt = "no"; if ($isL0) { $l0Txt = "sí" }
+    Write-Host ("╔" + ("═" * 43) + "╗") -ForegroundColor Cyan
+    Write-Host ("║ {0,-41} ║" -f "[ATLAS] RECOMENDACIÓN DE QUEST") -ForegroundColor Yellow
+    Write-Host ("║ {0,-41} ║" -f (" Tipo: $bestType ($bestScore keywords)")) -ForegroundColor White
+    Write-Host ("║ {0,-41} ║" -f (" Party sugerido: $shortParty")) -ForegroundColor Yellow
+    Write-Host ("║ {0,-41} ║" -f (" Costo est.: $mpK" + "K tokens · ~$" + ("{0:N2}" -f $estimatedCostUsd))) -ForegroundColor Yellow
+    Write-Host ("║ {0,-41} ║" -f (" Complejidad: $complexity · L0: $l0Txt")) -ForegroundColor White
+    Write-Host ("║ {0,-41} ║" -f " → ¿Ejecutar? (sí / ajustar / no)") -ForegroundColor Yellow
+    Write-Host ("╚" + ("═" * 43) + "╝") -ForegroundColor Cyan
+    Write-Host ""
+}
+
+# Restaurar encoding previo (higiene; el script normalmente termina aqui)
+if ($prevConsoleEncoding) {
+    try { [Console]::OutputEncoding = $prevConsoleEncoding } catch {}
 }

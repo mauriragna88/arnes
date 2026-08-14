@@ -1,10 +1,15 @@
 ﻿{
     "version":  "1.0.0",
-    "updated_at":  "2026-08-13T20:30:00Z",
-    "updated_by":  "atlas",
+    "updated_at":  "2026-08-13T23:57:00-06:00",
+    "updated_by":  "tywin",
     "last_quest_id":  "osma-stats",
-    "patterns":  [
-                     {
+     "patterns":  [
+                      {
+                          "quest_id":  "Quest Recommender Gate re-audit",
+                          "pattern":  "Set PowerShell Console OutputEncoding before any human Write-Host and short-circuit every -Json path before orchestration side effects.",
+                          "timestamp":  "2026-08-13T23:57:00-06:00"
+                      },
+                      {
                          "quest_id":  "osma-stats-retry",
                          "pattern":  "Keep legacy and new OSMA metrics in one defensive summary method; guard each SQL metric group and route the CLI directly to it.",
                          "timestamp":  "2026-08-13T00:00:00Z"
@@ -36,8 +41,18 @@
 
                                       ]
                         },
-    "failed_attempts":  [
-                            {
+     "failed_attempts":  [
+                             {
+                                 "quest_id":  "Quest Recommender Gate",
+                                 "agent":  "atlas-orchestrator/quest-detector",
+                                 "error":  "Human recommendation output is not UTF-8 safe in the target PowerShell invocation; -Json -Gate off does not exit after emitting recommendation and continues execution.",
+                                 "resolution":  "Make human recommendation output encoding-safe and make -Json return the recommendation before any gate-off execution path, then rerun the recommender tests and sanity commands.",
+                                 "timestamp":  "2026-08-13T23:45:00-06:00",
+                                 "repeated_in":  [
+
+                                                 ]
+                             },
+                             {
                                 "quest_id":  "OSMA-episode-pattern-completion",
                                 "agent":  "osma-v7",
                                 "error":  "Partial compliance: link reactivation does not increment coactivation_count; cue competition omits explicit recency/importance/episode-coherence scoring; cue search bypasses FTS5.",

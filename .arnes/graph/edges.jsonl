@@ -15,3 +15,6 @@
 {"source": "osma-episode", "target": "experiences", "relation": "reconstructs", "agent": "ansem", "quest_id": "Q-OSMA-V7-EPISODE", "created_at": "2026-08-13"}
 {"source": "osma-cue-search", "target": "experience_links", "relation": "increments_coactivation", "agent": "ansem", "quest_id": "Q-OSMA-V7-AUDIT-TYWIN", "created_at": "2026-08-13"}
 {"source": "osma-cue-search", "target": "observations_fts", "relation": "falls_back_to", "agent": "ansem", "quest_id": "Q-OSMA-V7-AUDIT-TYWIN", "created_at": "2026-08-13"}
+{"source": "cli/quest-detector.ps1", "target": "cli/atlas-orchestrator.ps1", "relation": "recommends", "agent": "ansem", "quest_id": "Q-GATE", "created_at": "2026-08-13"}
+{"source": "cli/atlas-orchestrator.ps1", "target": ".arnes/preferences.json", "relation": "reads_gate_from", "agent": "ansem", "quest_id": "Q-GATE", "created_at": "2026-08-13"}
+{"source": "cli/atlas-orchestrator.ps1", "target": "cli/quest-detector.ps1", "relation": "gates_with", "agent": "ansem", "quest_id": "Q-GATE", "created_at": "2026-08-13"}

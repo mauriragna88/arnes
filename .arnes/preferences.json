@@ -1,5 +1,6 @@
 ﻿{
     "version":  "1.0",
+    "quest_gate":  "auto",
     "mode":  "mixto",
     "updated_at":  "2026-08-05 23:48:22",
     "auto":  {
