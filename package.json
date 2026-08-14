@@ -41,7 +41,7 @@
     "postinstall": "node bin/postinstall.js",
     "prepublishOnly": "npm test",
     "test": "node bin/run-tests.js",
-    "test:unit": "node --import tsx --test --test-force-exit tests/unit/*.test.ts",
+    "test:unit": "node --import tsx --test tests/unit/*.test.ts",
     "test:ps": "powershell -NoProfile -ExecutionPolicy Bypass -File tests/run-all.ps1 -SkipSmoke"
   },
   "devDependencies": {

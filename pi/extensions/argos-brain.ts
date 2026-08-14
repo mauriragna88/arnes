@@ -18,6 +18,7 @@ export async function runBrain(
   args: string[],
   stdinJson?: unknown
 ): Promise<{ ok: boolean; data: unknown; error?: string }> {
+  const timeoutMs = 5000;
   try {
     const brain = resolveBrainPath(cwd);
     const db = join(cwd, ".arnes", "arnes.db");
@@ -33,7 +34,31 @@ export async function runBrain(
       child.stdin.write(JSON.stringify(stdinJson));
     }
     child.stdin.end();
-    const code: number = await new Promise((res) => child.on("close", res));
+    // Espera el cierre del proceso con timeout: si el hijo no termina en
+    // `timeoutMs` (p.ej. un handle SQLite que no se cerró en Python), lo mata
+    // para que node --test no quede colgado esperando el close.
+    const timedOut = Symbol("runBrain-timeout");
+    const code: number | typeof timedOut = await new Promise((resolve) => {
+      const timer = setTimeout(() => {
+        child.kill();
+        resolve(timedOut);
+      }, timeoutMs);
+      child.on("close", (c) => {
+        clearTimeout(timer);
+        resolve(c ?? 0);
+      });
+      child.on("error", () => {
+        clearTimeout(timer);
+        resolve(-2);
+      });
+    });
+    // Cierra los streams del hijo para que node no mantenga el event loop abierto.
+    child.stdout.destroy();
+    child.stderr.destroy();
+    child.stdin.destroy();
+    if (code === timedOut) {
+      return { ok: false, data: null, error: "timeout" };
+    }
     if (code !== 0) {
       return { ok: false, data: null, error: stderr.trim() || `exit ${code}` };
     }

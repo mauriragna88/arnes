@@ -14,6 +14,7 @@ Uso (desde CLI PowerShell): ver arnes-memory.ps1
 100% local. CERO dependencias externas. Solo Python 3.14 + SQLite nativo.
 """
 
+import atexit
 import json
 import math
 import os
@@ -340,6 +341,9 @@ class ArnesBrain:
         self._conn.executescript(TRIGGERS)
         self._migrate()
         self._conn.commit()
+        # Ultima red de seguridad: cierra la conexion al salir del proceso
+        # aunque main() nunca llegue al finally (p.ej. sys.exit en un guard).
+        atexit.register(self.close)
 
     def _migrate(self):
         """Migracion V3 idempotente: agrega columnas/tablas sin romper datos existentes."""
@@ -3357,7 +3361,21 @@ class ArnesBrain:
         }
 
     def close(self):
-        self._conn.close()
+        """Cierra la conexion SQLite. Idempotente: puede llamarse varias veces sin error."""
+        conn = getattr(self, "_conn", None)
+        if conn is not None:
+            self._conn = None
+            try:
+                conn.close()
+            except Exception:
+                pass
+
+    def __del__(self):
+        """Ultima red de seguridad: cierra la conexion si el objeto se recolecta sin close()."""
+        try:
+            self.close()
+        except Exception:
+            pass
 
 
 def _read_json_arg(raw):
@@ -3378,8 +3396,20 @@ def main():
         sys.exit(1)
 
     db_path, command = sys.argv[1], sys.argv[2]
-    brain = ArnesBrain(db_path)
+    brain = None
+    try:
+        brain = ArnesBrain(db_path)
+        _dispatch(brain, command)
+    finally:
+        # Garantiza el cierre de la conexion SQLite en TODOS los code paths
+        # (excepciones, sys.exit, comandos desconocidos, final normal).
+        if brain is not None:
+            brain.close()
 
+
+def _dispatch(brain, command):
+    """Ejecuta el comando pedido sobre el cerebro (separado de main para que el
+    cierre de la conexion quede garantizado en un finally)."""
     if command == "init":
         agents = _read_json_arg(sys.argv[3]) if len(sys.argv) > 3 else []
         for a in agents:
@@ -3761,8 +3791,6 @@ def main():
 
     else:
         print(json.dumps({"error": f"comando desconocido: {command}"}))
-
-    brain.close()
 
 
 if __name__ == "__main__":
