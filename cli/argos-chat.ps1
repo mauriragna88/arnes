@@ -20,6 +20,11 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+
+# Tema activo: colores compartidos desde theme-colors.ps1
+. (Join-Path $PSScriptRoot 'theme-colors.ps1')
+$theme = Get-ThemeColors
+
 $Root = Resolve-Path (Join-Path $PSScriptRoot '..')
 $ArnesDir = Join-Path $Root '.arnes'
 $script:chatSession = @()   # memoria de conversacion multi-turno
@@ -58,9 +63,9 @@ function Get-AgentPrompt {
 # === Banner mini ===
 function Show-MiniBanner {
     Write-Host ''
-    Write-Host "  ╔══════════════════════════════════════════════════════════════╗" -ForegroundColor DarkRed
-    Write-Host "  ║   ARNES ARGOS - Chat del Orquestador RPG - Los 100 Ojos   ║" -ForegroundColor White
-    Write-Host "  ╚══════════════════════════════════════════════════════════════╝" -ForegroundColor DarkRed
+    Write-Host "  ╔══════════════════════════════════════════════════════════════╗" -ForegroundColor $theme.Primary
+    Write-Host "  ║   ARNES ARGOS - Chat del Orquestador RPG - Los 100 Ojos   ║" -ForegroundColor $theme.Accent
+    Write-Host "  ╚══════════════════════════════════════════════════════════════╝" -ForegroundColor $theme.Primary
     Write-Host '   ARNES v2.6 · 2026-08-06 · motor nativo · sin opencode' -ForegroundColor DarkGray
     Write-Host ''
 }
@@ -157,7 +162,7 @@ function Invoke-ArgoQuest {
 function Show-InteractiveChat {
     Show-MiniBanner
     Write-Host '  Bienvenido al chat de ARNES ARGOS.' -ForegroundColor Green
-    Write-Host '  Escribe tus quests (ej: "haz login form con Zod") o usa los comandos:' -ForegroundColor White
+    Write-Host '  Escribe tus quests (ej: "haz login form con Zod") o usa los comandos:' -ForegroundColor $theme.Accent
     Write-Host '    /party        ver party' -ForegroundColor DarkGray
     Write-Host '    /connectagent reconfigurar modelos por agente' -ForegroundColor DarkGray
     Write-Host '    /memory       estado de memoria' -ForegroundColor DarkGray
@@ -175,7 +180,7 @@ function Show-InteractiveChat {
 
         switch -Regex ($input) {
             '^\s*/quit\s*$' {
-                Write-Host '  Adios, jugador. Rojo y negro. 👁️' -ForegroundColor White
+                Write-Host '  Adios, jugador. Rojo y negro. 👁️' -ForegroundColor $theme.Accent
                 Save-ChatMemory
                 # Checkpoint final de sesion (continuidad garantizada) + backup
                 try {
@@ -190,7 +195,7 @@ function Show-InteractiveChat {
             }
             '^\s*/connectagent\s*$' {
                 Write-Host ''
-                Write-Host '  ▸ Reconfigurando modelos por agente (argos configure)...' -ForegroundColor Cyan
+                Write-Host '  ▸ Reconfigurando modelos por agente (argos configure)...' -ForegroundColor $theme.Primary
                 & (Join-Path $PSScriptRoot 'argos.ps1') configure
                 Write-Host '  ▸ Modelos reconfigurados. Los agentes usaran su modelo al delegar.' -ForegroundColor Green
                 continue
@@ -199,7 +204,7 @@ function Show-InteractiveChat {
                 $codeQuest = if ($Matches[1]) { $Matches[1] } else { $script:lastQuest }
                 if ([string]::IsNullOrWhiteSpace($codeQuest)) {
                     Write-Host '  Uso: /code <quest de coding>  (crea archivos REALES en este proyecto)' -ForegroundColor Yellow
-                    Write-Host '  Ej:  /code crea el schema.sql de businesses con las 9 tablas' -ForegroundColor Cyan
+                    Write-Host '  Ej:  /code crea el schema.sql de businesses con las 9 tablas' -ForegroundColor $theme.Primary
                 } else {
                     & (Join-Path $PSScriptRoot 'arnes-code.ps1') -Quest $codeQuest
                 }
@@ -209,7 +214,7 @@ function Show-InteractiveChat {
                 $memCli = Join-Path $PSScriptRoot 'arnes-memory.ps1'
                 $cpQuest = if ($Matches[1]) { $Matches[1] } else { $script:lastQuest }
                 if ([string]::IsNullOrWhiteSpace($cpQuest)) { $cpQuest = 'sesion-actual' }
-                Write-Host '  COGNITIVE CHECKPOINT manual (preserva estado sin compactar)' -ForegroundColor Cyan
+                Write-Host '  COGNITIVE CHECKPOINT manual (preserva estado sin compactar)' -ForegroundColor $theme.Primary
                 $next = Read-Input '  Cual es la SIGUIENTE ACCION exacta? '
                 & $memCli checkpoint -Create -QuestId $cpQuest -Agent 'atlas' -Goal $cpQuest -NextAction $next 2>&1 | Select-Object -Last 1 | ForEach-Object { $_.Trim() }
                 continue
@@ -228,7 +233,7 @@ function Show-InteractiveChat {
             }
             '^\s*/argos-compact\s*$' {
                 $memCli = Join-Path $PSScriptRoot 'arnes-memory.ps1'
-                Write-Host '  ARGOS COGNITIVE COMPACTION (consolidar + checkpoint + capsule)' -ForegroundColor Cyan
+                Write-Host '  ARGOS COGNITIVE COMPACTION (consolidar + checkpoint + capsule)' -ForegroundColor $theme.Primary
                 $cpQuest = if ($script:lastQuest) { $script:lastQuest } else { 'sesion-actual' }
                 $next = Read-Input '  Cual es la SIGUIENTE ACCION exacta? '
                 & $memCli cognitive-compact -QuestId $cpQuest -Agent 'atlas' -Goal $cpQuest -NextAction $next
@@ -274,7 +279,7 @@ function Show-InteractiveChat {
                 if (-not $goal) {
                     Write-Host '  Uso: /autowork <objetivo global>  (modo autonomo hasta lograrlo)' -ForegroundColor Yellow
                     Write-Host '       /autowork stop               (detener al terminar la iteracion)' -ForegroundColor Yellow
-                    Write-Host '  Ej: /autowork crea la plataforma escolar completa con login, calificaciones y avisos' -ForegroundColor Cyan
+                    Write-Host '  Ej: /autowork crea la plataforma escolar completa con login, calificaciones y avisos' -ForegroundColor $theme.Primary
                 } else {
                     & (Join-Path $PSScriptRoot 'arnes-goal.ps1') -Goal $goal
                 }
@@ -288,15 +293,15 @@ function Show-InteractiveChat {
             '^\s*/models\s*$' {
                 $raw = @(cmd /c 'opencode models' 2>$null)
                 $models = @($raw | Where-Object { $_ -match '^[\w-]+/.+' })
-                Write-Host "  Catalogo vivo: $($models.Count) modelos" -ForegroundColor Cyan
+                Write-Host "  Catalogo vivo: $($models.Count) modelos" -ForegroundColor $theme.Primary
                 $models | Group-Object { ($_ -split '/')[0] } | Sort-Object Name | Select-Object -First 10 | ForEach-Object {
                     Write-Host "  [$($_.Name)]" -ForegroundColor Yellow
-                    $_.Group | Select-Object -First 5 | ForEach-Object { Write-Host "    $_" -ForegroundColor White }
+                    $_.Group | Select-Object -First 5 | ForEach-Object { Write-Host "    $_" -ForegroundColor $theme.Accent }
                 }
                 continue
             }
             '^\s*/status\s*$' {
-                Write-Host '  ARNES ARGOS - Estado' -ForegroundColor Cyan
+                Write-Host '  ARNES ARGOS - Estado' -ForegroundColor $theme.Primary
                 Write-Host "  Agentes: 16 · Memoria: arnes.db · Proceso: SDD/FDD/ADR" -ForegroundColor Green
                 continue
             }
@@ -311,7 +316,7 @@ function Show-InteractiveChat {
                         $autoGoal = Read-Input '  Atlas: dame el OBJETIVO del modo autonomo: '
                     }
                     if ($autoGoal) {
-                        Write-Host '  ▸ [AUTOWORK] Modo autonomo activado por solicitud.' -ForegroundColor DarkRed
+                        Write-Host '  ▸ [AUTOWORK] Modo autonomo activado por solicitud.' -ForegroundColor $theme.Primary
                         & (Join-Path $PSScriptRoot 'arnes-goal.ps1') -Goal $autoGoal
                     } else {
                         Write-Host '  Atlas: no recibí el objetivo. Usa /autowork <objetivo>.' -ForegroundColor Yellow
@@ -330,11 +335,11 @@ function Show-InteractiveChat {
 
 function Show-Party {
     Write-Host ''
-    Write-Host '  ARNES ARGOS - PARTY (16 agentes)' -ForegroundColor Cyan
-    Write-Host '  Atlas (Player) · Vivi (Frontend) · Ansem (Backend) · Kuja (QA)' -ForegroundColor White
-    Write-Host '  Eiko (DevOps) · Amarant (Arq) · Eremez (Research) · Auron (Sec)' -ForegroundColor White
-    Write-Host '  Bran (Analista) · Quina (Tokens) · Varys (Tracker) · Tywin (Verif)' -ForegroundColor White
-    Write-Host '  Sam (Consejero) · Bard (Mejora) · Tidus (Infra) · Ragnarok (Compras)' -ForegroundColor White
+    Write-Host '  ARNES ARGOS - PARTY (16 agentes)' -ForegroundColor $theme.Primary
+    Write-Host '  Atlas (Player) · Vivi (Frontend) · Ansem (Backend) · Kuja (QA)' -ForegroundColor $theme.Accent
+    Write-Host '  Eiko (DevOps) · Amarant (Arq) · Eremez (Research) · Auron (Sec)' -ForegroundColor $theme.Accent
+    Write-Host '  Bran (Analista) · Quina (Tokens) · Varys (Tracker) · Tywin (Verif)' -ForegroundColor $theme.Accent
+    Write-Host '  Sam (Consejero) · Bard (Mejora) · Tidus (Infra) · Ragnarok (Compras)' -ForegroundColor $theme.Accent
     # === Niveles XP desde quest-ledger ===
     $ledgerFile = Join-Path (Get-Location) '.arnes\quest-ledger.json'
     if (Test-Path $ledgerFile) {
@@ -366,13 +371,13 @@ function Render-Reply {
     foreach ($line in ($Text -split "`n")) {
         $t = $line.TrimEnd()
         if ($t -match '^\s*#{1,3}\s+(.+)$') {
-            Write-Host ("  " + $Matches[1]) -ForegroundColor Cyan
+            Write-Host ("  " + $Matches[1]) -ForegroundColor $theme.Primary
         }
         elseif ($t -match '^\s*[-*]\s+(.+)$') {
-            Write-Host ("  • " + $Matches[1]) -ForegroundColor White
+            Write-Host ("  • " + $Matches[1]) -ForegroundColor $theme.Accent
         }
         elseif ($t -match '^\s*\d+[\.\)]\s+.+$') {
-            Write-Host ("  " + $t.Trim()) -ForegroundColor White
+            Write-Host ("  " + $t.Trim()) -ForegroundColor $theme.Accent
         }
         elseif ([string]::IsNullOrWhiteSpace($t)) {
             Write-Host ''
@@ -380,7 +385,7 @@ function Render-Reply {
         else {
             # texto plano (sin ANSI: PS 5.1/consolas no lo renderizan)
             $rendered = $t -replace '\*\*(.+?)\*\*', '$1'
-            Write-Host ("  " + $rendered) -ForegroundColor White
+            Write-Host ("  " + $rendered) -ForegroundColor $theme.Accent
         }
     }
 }
@@ -404,15 +409,15 @@ function Show-Questionnaire {
     if ($questions.Count -lt 2) { return $false }
 
     Write-Host ''
-    Write-Host '  ── Atlas necesita tu respuesta ──' -ForegroundColor Cyan
+    Write-Host '  ── Atlas necesita tu respuesta ──' -ForegroundColor $theme.Primary
     $answers = @()
     for ($i = 0; $i -lt $questions.Count; $i++) {
         $q = $questions[$i]
         Write-Host ''
-        Write-Host ("  Pregunta {0}/{1}: {2}" -f ($i + 1), $questions.Count, $q.Question) -ForegroundColor Cyan
+        Write-Host ("  Pregunta {0}/{1}: {2}" -f ($i + 1), $questions.Count, $q.Question) -ForegroundColor $theme.Primary
         if ($q.Options.Count -ge 2) {
             for ($j = 0; $j -lt $q.Options.Count; $j++) {
-                Write-Host ("     [{0}] {1}" -f ($j + 1), $q.Options[$j]) -ForegroundColor White
+                Write-Host ("     [{0}] {1}" -f ($j + 1), $q.Options[$j]) -ForegroundColor $theme.Accent
             }
             Write-Host '  (elige un numero, escribe tu respuesta, o Enter para omitir) [Q salir]' -ForegroundColor DarkGray
         }
@@ -484,9 +489,9 @@ function Show-OptionsChoice {
     $nonEmptyLines = @($reply -split "`n" | Where-Object { $_.Trim() }).Count
     if ($nonEmptyLines -gt 0 -and (($options.Count / $nonEmptyLines) -lt 0.5)) { return }
     Write-Host ''
-    Write-Host '  ── Atlas espera tu eleccion ──' -ForegroundColor Cyan
+    Write-Host '  ── Atlas espera tu eleccion ──' -ForegroundColor $theme.Primary
     for ($i = 0; $i -lt $options.Count; $i++) {
-        Write-Host ("     [{0}] {1}" -f ($i + 1), $options[$i]) -ForegroundColor White
+        Write-Host ("     [{0}] {1}" -f ($i + 1), $options[$i]) -ForegroundColor $theme.Accent
     }
     Write-Host '  (escribe el numero, tu propia respuesta, o Q para salir)' -ForegroundColor DarkGray
     $choice = Read-Input '  [ARGOS] >'

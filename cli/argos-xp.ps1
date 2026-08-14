@@ -19,6 +19,10 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
+# Tema activo: colores compartidos desde theme-colors.ps1
+. (Join-Path $PSScriptRoot 'theme-colors.ps1')
+$theme = Get-ThemeColors
+
 $Root = Resolve-Path (Join-Path $PSScriptRoot '..')
 $WorkDir = (Get-Location).Path
 $ArnesDir = Join-Path $WorkDir '.arnes'
@@ -65,19 +69,19 @@ if ($Agent) {
     }
     $xp = $xpMap[$name]
     Write-Host ''
-    Write-Host "  $name - Nivel $(Get-Level $xp) (XP $xp)" -ForegroundColor Cyan
-    Write-Host "    Quests: $($questMap[$name]) | Tokens usados: $($tokenMap[$name])" -ForegroundColor White
+    Write-Host "  $name - Nivel $(Get-Level $xp) (XP $xp)" -ForegroundColor $theme.Primary
+    Write-Host "    Quests: $($questMap[$name]) | Tokens usados: $($tokenMap[$name])" -ForegroundColor $theme.Accent
     Write-Host ''
     exit 0
 }
 
 Write-Host ''
-Write-Host '  ARNES ARGOS - RANKING XP' -ForegroundColor DarkRed
-Write-Host '  ========================' -ForegroundColor DarkRed
+Write-Host '  ARNES ARGOS - RANKING XP' -ForegroundColor $theme.Title
+Write-Host '  ========================' -ForegroundColor $theme.Title
 Write-Host ''
 $rows = $xpMap.GetEnumerator() | Sort-Object Value -Descending
 foreach ($r in $rows) {
     $lvl = Get-Level ([int]$r.Value)
-    Write-Host ("  {0,-12} Nivel {1,-4} XP {2,-6} Quest(s) {3,-3} Tokens {4}" -f $r.Key, $lvl, $r.Value, $questMap[$r.Key], $tokenMap[$r.Key]) -ForegroundColor White
+    Write-Host ("  {0,-12} Nivel {1,-4} XP {2,-6} Quest(s) {3,-3} Tokens {4}" -f $r.Key, $lvl, $r.Value, $questMap[$r.Key], $tokenMap[$r.Key]) -ForegroundColor $theme.Accent
 }
 Write-Host ''
