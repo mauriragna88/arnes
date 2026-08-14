@@ -1,10 +1,14 @@
 ﻿{
     "version":  "1.0.0",
-    "updated_at":  "2026-08-12T00:00:00Z",
-    "updated_by":  "tywin",
-    "last_quest_id":  "OSMA-episode-pattern-completion",
+    "updated_at":  "2026-08-13T20:30:00Z",
+    "updated_by":  "atlas",
+    "last_quest_id":  "osma-stats",
     "patterns":  [
-
+                     {
+                         "quest_id":  "osma-stats-retry",
+                         "pattern":  "Keep legacy and new OSMA metrics in one defensive summary method; guard each SQL metric group and route the CLI directly to it.",
+                         "timestamp":  "2026-08-13T00:00:00Z"
+                     }
                  ],
     "agent_learnings":  {
                             "vivi":  [
@@ -39,7 +43,19 @@
                                 "error":  "Partial compliance: link reactivation does not increment coactivation_count; cue competition omits explicit recency/importance/episode-coherence scoring; cue search bypasses FTS5.",
                                 "resolution":  "Re-audit after incrementing link coactivation metadata, adding the required competition factors, and integrating the V7 cue path with FTS5 or documenting a justified equivalent.",
                                 "timestamp":  "2026-08-12T00:00:00Z",
-                                "repeated_in":  []
+                                "repeated_in":  [
+
+                                                ]
+                            },
+                            {
+                                "quest_id":  "osma-stats",
+                                "agent":  "ansem",
+                                "error":  "osma-stats dispatch calls legacy osma_stats() without a defensive guard; missing legacy tables can crash before the defensive V5-V7 metric groups execute.",
+                                "resolution":  "Make the additive V4 summary path tolerate missing tables per metric group, then rerun the osma-stats and full OSMA suites.",
+                                "timestamp":  "2026-08-13T00:00:00Z",
+                                "repeated_in":  [
+
+                                                ]
                             },
                             {
                                 "quest_id":  "Q-002",
@@ -100,12 +116,12 @@
                                       "quests_since_last_fail":  2
                                   },
                          "ansem":  {
-                                       "score":  0.5,
-                                       "trend":  "falling",
+                                       "score":  0.75,
+                                       "trend":  "rising",
                                        "quests_with_party":  1,
-                                       "recent_fail_count":  1,
-                                       "quests_since_last_fail":  0,
-                                       "comment":  "Circuit breaker triggered in Q-002. Needs recovery quest."
+                                       "recent_fail_count":  0,
+                                       "quests_since_last_fail":  1,
+                                       "comment":  "Recovery quest PASS (osma-stats). Trust restored to 0.75."
                                    },
                          "kuja":  {
                                       "score":  1.0,

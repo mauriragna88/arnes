@@ -3213,6 +3213,98 @@ class ArnesBrain:
             "patterns": patterns,
         }
 
+    # ---------- OSMA V4-V7 BRAIN SUMMARY (osma-stats) ----------
+    # Resumen del cerebro OSMA completo: metricas legacy V4 (observations/links)
+    # + experiences (V5) + cues (V6) + episodes (V7). Defensivo por grupo: cada
+    # bloque va en try/except y hace default a ceros/arrays vacios si una tabla
+    # no existe, esta vacia o esta incompleta. NUNCA crashea (requisito: empty
+    # DB y missing table tolerados — FIX Tywin: el dispatch ya NO llama a
+    # osma_stats() sin guarda; todo el output sale de este unico metodo).
+    def _osma_stats(self):
+        def _count(sql, *params):
+            try:
+                return int(self._conn.execute(sql, params).fetchone()[0])
+            except Exception:
+                return 0
+
+        def _avg(sql, *params):
+            try:
+                val = self._conn.execute(sql, params).fetchone()[0]
+                return round(float(val), 4) if val is not None else 0.0
+            except Exception:
+                return 0.0
+
+        # ---- V4 legacy (antes osma_stats): metricas de observations/links ----
+        # Defensivas: observation_links puede faltar o estar incompleta (sin la
+        # columna weight) en DBs legacy; si la SELECT falla, se reportan ceros.
+        legacy_links = []
+        try:
+            legacy_links = [dict(r) for r in self._conn.execute(
+                "SELECT weight FROM observation_links")]
+        except Exception:
+            legacy_links = []
+        legacy = {
+            "links": len(legacy_links),
+            "avg_link_weight": round(
+                sum(float(l["weight"]) for l in legacy_links) / len(legacy_links), 4
+            ) if legacy_links else 0.0,
+            "active": _count("SELECT COUNT(*) FROM observations WHERE state='active' AND archived=0"),
+            "warm": _count("SELECT COUNT(*) FROM observations WHERE state='dormant'"),
+            "cold": 0,
+            "archived": _count("SELECT COUNT(*) FROM observations WHERE archived=1 OR state='archived'"),
+            "contradictions_open": _count("SELECT COUNT(*) FROM contradictions WHERE status='open'"),
+            "consolidations_pending": _count("SELECT COUNT(*) FROM consolidations WHERE status='pending'"),
+        }
+
+        total_experiences = _count("SELECT COUNT(*) FROM experiences")
+        total_cues = _count("SELECT COUNT(*) FROM experience_cues")
+        # links del brain: experience_links (V5) + experience_observation_links (V5)
+        # + observation_links (V4) — la red asociativa completa V4-V7.
+        total_links = (_count("SELECT COUNT(*) FROM experience_links")
+                       + _count("SELECT COUNT(*) FROM experience_observation_links")
+                       + _count("SELECT COUNT(*) FROM observation_links"))
+        total_episodes = total_experiences
+
+        # ids visibles de episodio (EPISODE_XXXX) reusando el helper V7.
+        episode_ids = []
+        try:
+            for r in self._conn.execute("SELECT id FROM experiences ORDER BY id"):
+                episode_ids.append(self._episode_id(r["id"]))
+        except Exception:
+            episode_ids = []
+
+        # distribucion por validation_status (taxonomia V5; 'recorded' inicial
+        # corresponde a 'proposal' — el estado default al registrar sin reward).
+        status_distribution = {
+            "proposal": 0, "hypothesis": 0, "attempted": 0, "partial": 0,
+            "verified": 0, "failed": 0, "unverified": 0,
+        }
+        try:
+            for r in self._conn.execute(
+                    "SELECT validation_status, COUNT(*) AS n FROM experiences "
+                    "GROUP BY validation_status"):
+                st = r["validation_status"] or "unverified"
+                status_distribution[st] = int(r["n"])
+        except Exception:
+            pass
+
+        avg_cues_per_experience = round(total_cues / total_experiences, 4) if total_experiences else 0.0
+
+        result = dict(legacy)
+        result.update({
+            "total_experiences": total_experiences,
+            "total_cues": total_cues,
+            "total_links": total_links,
+            "total_episodes": total_episodes,
+            "episodes": {"count": len(episode_ids), "ids": episode_ids},
+            "status_distribution": status_distribution,
+            "avg_confidence": _avg("SELECT AVG(confidence) FROM experiences"),
+            "avg_importance": _avg("SELECT AVG(importance) FROM experiences"),
+            "avg_retrieval_strength": _avg("SELECT AVG(retrieval_strength) FROM experiences"),
+            "avg_cues_per_experience": avg_cues_per_experience,
+        })
+        return result
+
     # ---------- EXPORT / IMPORT ----------
     def export_jsonl(self, out_dir):
         """Snapshot portable para git/backup."""
@@ -3607,7 +3699,11 @@ def main():
                          ensure_ascii=False))
 
     elif command == "osma-stats":
-        print(json.dumps(brain.osma_stats(), ensure_ascii=False))
+        # Summary V4-V7 del cerebro OSMA construido por UN metodo defensivo:
+        # _osma_stats() protege CADA grupo (legacy V4 + V5-V7) con try/except.
+        # Una tabla legacy faltante/incompleta devuelve defaults vacios en vez
+        # de crashear (FIX Tywin: ya NO se llama a osma_stats() sin guarda).
+        print(json.dumps(brain._osma_stats(), ensure_ascii=False))
 
     elif command == "osma-experience-record":
         data = _read_json_arg(sys.argv[3] if len(sys.argv) > 3 else "-")
