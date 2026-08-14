@@ -1,8 +1,8 @@
 ﻿{
     "version":  "1.0.0",
-    "updated_at":  "2026-08-04T14:00:00-06:00",
-    "updated_by":  "atlas",
-    "last_quest_id":  "Q-022",
+    "updated_at":  "2026-08-12T00:00:00Z",
+    "updated_by":  "tywin",
+    "last_quest_id":  "OSMA-episode-pattern-completion",
     "patterns":  [
 
                  ],
@@ -33,6 +33,14 @@
                                       ]
                         },
     "failed_attempts":  [
+                            {
+                                "quest_id":  "OSMA-episode-pattern-completion",
+                                "agent":  "osma-v7",
+                                "error":  "Partial compliance: link reactivation does not increment coactivation_count; cue competition omits explicit recency/importance/episode-coherence scoring; cue search bypasses FTS5.",
+                                "resolution":  "Re-audit after incrementing link coactivation metadata, adding the required competition factors, and integrating the V7 cue path with FTS5 or documenting a justified equivalent.",
+                                "timestamp":  "2026-08-12T00:00:00Z",
+                                "repeated_in":  []
+                            },
                             {
                                 "quest_id":  "Q-002",
                                 "agent":  "ansem",

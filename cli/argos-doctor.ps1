@@ -4,8 +4,8 @@
 ARGOS DOCTOR - Verifica los prerequisitos del harness ARNES ARGOS
 
 .DESCRIPTION
-Revisa: PowerShell, Python 3 (+sqlite3), Node.js/npm, OpenCode CLI, Git,
-configuracion global (~/.config/arnes), agentes instalados y Docker (opcional).
+Revisa: PowerShell, Python 3 (+sqlite3), Node.js/npm, OpenCode CLI, Freebuff CLI,
+Git, configuracion global (~/.config/arnes), agentes instalados y Docker (opcional).
 Reporta OK / WARN / MISSING con la instruccion de arreglo para cada uno.
 
 .EXAMPLE
@@ -47,6 +47,10 @@ Add-Check 'Node.js + npm' $nodeOk "$nodeVer / npm $npmVer" 'https://nodejs.org (
 # === OpenCode CLI ===
 $oc = Get-Command opencode -ErrorAction SilentlyContinue
 Add-Check 'OpenCode CLI (motor)' ($null -ne $oc) $(if ($oc) { $oc.Source } else { 'faltante' }) 'npm install -g opencode-ai'
+
+# === Freebuff CLI (target gratuito) ===
+$fb = Get-Command freebuff -ErrorAction SilentlyContinue
+Add-Check 'Freebuff CLI (target)' ($null -ne $fb) $(if ($fb) { $fb.Source } else { 'faltante' }) 'npm install -g freebuff'
 
 # === Git ===
 $gitVer = ''

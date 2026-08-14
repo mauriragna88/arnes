@@ -12,6 +12,7 @@ interface WorkingMemory {
   facts: string[]; // hechos verificados recientes (máx 10)
   activeSkill: string;
   procedureStage: string;
+  recalledMemoryIds: number[]; // ids de memorias recalled por osma-recall (bookkeeping interno, máx 20)
 }
 
 const wm: WorkingMemory = {
@@ -25,6 +26,7 @@ const wm: WorkingMemory = {
   facts: [],
   activeSkill: "",
   procedureStage: "",
+  recalledMemoryIds: [],
 };
 
 export function getWorkingMemoryBlock(): string {
@@ -71,8 +73,23 @@ export function addError(e: string) {
   wm.errors.push(e);
   if (wm.errors.length > 5) wm.errors.shift();
 }
+export function addRecalledMemory(id: number) {
+  if (!wm.recalledMemoryIds.includes(id)) {
+    wm.recalledMemoryIds.push(id);
+    if (wm.recalledMemoryIds.length > 20) wm.recalledMemoryIds.shift();
+  }
+}
+export function clearRecalledMemory() {
+  wm.recalledMemoryIds = [];
+}
 export function getWorkingMemoryState(): WorkingMemory {
-  return { ...wm, files: [...wm.files], errors: [...wm.errors], facts: [...wm.facts] };
+  return {
+    ...wm,
+    files: [...wm.files],
+    errors: [...wm.errors],
+    facts: [...wm.facts],
+    recalledMemoryIds: [...wm.recalledMemoryIds],
+  };
 }
 
 export default function (pi: ExtensionAPI) {

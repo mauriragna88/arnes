@@ -1,15 +1,15 @@
-﻿#!/usr/bin/env bash
+#!/usr/bin/env bash
 # install.sh - Atlas Harness RPG Installer (Linux / Mac)
 # =============================================
 # Uso: ./install.sh
 # O one-liner:
-#   curl -fsSL https://raw.githubusercontent.com/<USER>/arnes/main/install.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/mauriragna88/arnes/main/install.sh | bash
 #
 # Requiere: git, pwsh (PowerShell Core)
 
 set -e
 
-REPO_URL="https://github.com/<USER>/arnes.git"
+REPO_URL="https://github.com/mauriragna88/arnes.git"
 REPO_BRANCH="main"
 INSTALL_DIR="$HOME/arnes"
 

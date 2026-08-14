@@ -2,7 +2,7 @@
 # ARNES - verificacion del selector de entorno (argos target)
 #
 # Hermetico: usa ConfigDir/TargetDir temporales y -NoLaunch.
-# Verifica: list, set, show, y despliegue de AGENTS.md/CLAUDE.md.
+# Verifica: list, set, show, y despliegue de AGENTS.md/CLAUDE.md (incluye target freebuff).
 #
 # Uso:  powershell -NoProfile -ExecutionPolicy Bypass -File tests/argos-target.tests.ps1
 # Exit: 0 = PASS | 1 = FAIL
@@ -24,6 +24,7 @@ try {
     Assert-That ($list -match 'opencode') 'list muestra opencode'
     Assert-That ($list -match 'codex') 'list muestra codex'
     Assert-That ($list -match 'claude') 'list muestra claude'
+    Assert-That ($list -match 'freebuff') 'list muestra freebuff'
 
     # 2. set persiste el default
     $set = (& powershell -NoProfile -ExecutionPolicy Bypass -File $TargetCli set -Name codex -ConfigDir $work | Out-String)
@@ -52,13 +53,20 @@ try {
         Assert-That ($c -match '^---\r?\nname:') "frontmatter valido en $($ca.Name)"
     }
 
-    # 6. argos.ps1 parsea (dispatch agregado)
+    # 6. launch freebuff -NoLaunch despliega AGENTS.md del proyecto (persona + roster)
+    & powershell -NoProfile -ExecutionPolicy Bypass -File $TargetCli -Target freebuff -NoLaunch -ConfigDir $work -TargetDir $work | Out-Null
+    Assert-That (Test-Path (Join-Path $work 'AGENTS.md')) 'freebuff: AGENTS.md desplegado'
+    $fbAgents = Get-Content (Join-Path $work 'AGENTS.md') -Raw
+    Assert-That ($fbAgents -match 'ARNES ARGOS - Atlas') 'freebuff: AGENTS.md contiene la persona Atlas'
+    Assert-That ($fbAgents -match 'Party ARNES') 'freebuff: AGENTS.md contiene el roster del party'
+
+    # 7. argos.ps1 parsea (dispatch agregado)
     $tokens = $null
     $errors = $null
     [System.Management.Automation.Language.Parser]::ParseFile((Join-Path $Root 'cli\argos.ps1'), [ref]$tokens, [ref]$errors) | Out-Null
     Assert-That ($errors.Count -eq 0) 'argos.ps1 parsea con el case target'
 
-    Write-Output 'PASS argos-target: list/set/show y despliegue AGENTS.md/CLAUDE.md'
+    Write-Output 'PASS argos-target: list/set/show y despliegue AGENTS.md/CLAUDE.md/Freebuff'
     exit 0
 } finally {
     if (Test-Path -LiteralPath $work) {

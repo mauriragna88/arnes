@@ -1,14 +1,14 @@
 # Atlas Harness RPG - Installer (Linux / Mac / WSL)
 # =================================================
 # Uso:
-#   curl -fsSL https://raw.githubusercontent.com/<USER>/arnes/main/install.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/mauriragna88/arnes/main/install.sh | bash
 #
 # O descarga y ejecuta:
 #   ./install.sh
 
 set -e
 
-REPO_URL="${ATLAS_REPO_URL:-https://github.com/<USER>/arnes.git}"
+REPO_URL="${ATLAS_REPO_URL:-https://github.com/mauriragna88/arnes.git}"
 REPO_BRANCH="${ATLAS_REPO_BRANCH:-main}"
 INSTALL_DIR="${ATLAS_INSTALL_DIR:-$HOME/arnes}"
 

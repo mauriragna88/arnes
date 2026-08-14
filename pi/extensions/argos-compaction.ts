@@ -54,7 +54,7 @@ export default function (pi: ExtensionAPI) {
     if (!existsSync(join(ctx.cwd, ".arnes", "arnes.db"))) return;
     // La cápsula se reinyecta en el siguiente before_agent_start como mensaje mínimo.
     // Aquí solo consolidamos y registramos el checkpoint más reciente.
-    await runBrain(ctx.cwd, ["consolidate-recent", "24"]);
+    await runBrain(ctx.cwd, ["osma-sleep", "24"]);
     // Rehidratar working memory desde el checkpoint más reciente (list → último id)
     const list = await runBrain(ctx.cwd, ["checkpoint", "list", "1"]);
     const rows = list.data as any[];

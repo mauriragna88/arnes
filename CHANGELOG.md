@@ -21,6 +21,9 @@ Todos los cambios relevantes de ARNES ARGOS se registran en este archivo.
   entorno ARNES cargado (personas/agentes/memoria). Default persistido en
   `~/.config/arnes/target.json`; `argos target set <nombre>`, `argos target list`,
   `argos target <nombre> [quest]`.
+- **Freebuff como target** (`argos target freebuff`): despliega la persona Atlas + roster del
+  party a `AGENTS.md` del proyecto y abre el CLI de Freebuff (gratuito, sin API keys),
+  detectado automáticamente en `argos target list` / `auto` y reportado por `argos doctor`.
 - `argos stats`: dashboard de actividad (quests, tokens, tasa de éxito, racha, top agentes).
 - `argos xp`: ranking de experiencia por agente con niveles.
 - `argos theme`: gestión de temas visuales (atlas/vivi/amarant/eiko/auron).

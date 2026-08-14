@@ -1,7 +1,7 @@
 #Requires -Version 5.1
 <#
 .SYNOPSIS
-ARGOS TARGET - selecciona y lanza el CLI de trabajo (OpenCode, Codex o Claude)
+ARGOS TARGET - selecciona y lanza el CLI de trabajo (OpenCode, Codex, Claude o Freebuff)
 cargando el entorno ARNES (agentes/personas).
 
 .DESCRIPTION
@@ -9,6 +9,7 @@ El puente entre ARNES y el CLI que quieras usar:
   opencode  -> sincroniza los 16 agentes con modelo propio (~/.config/opencode/agents) y abre opencode
   codex     -> despliega la persona Atlas a ~/.codex/AGENTS.md y abre codex
   claude    -> despliega la persona Atlas a ~/.claude/CLAUDE.md y abre claude
+  freebuff  -> despliega la persona Atlas + roster del party a AGENTS.md del proyecto y abre freebuff
 
 El default queda guardado en ~/.config/arnes/target.json (UNA vez por maquina).
 Para opencode/codex/claude, el modelo lo gestiona el propio CLI; ARNES aporta
@@ -29,7 +30,7 @@ param(
     [string]$Command = 'launch',
 
     [Parameter(Position = 1)]
-    [ValidateSet('', 'opencode', 'codex', 'claude', 'auto')]
+    [ValidateSet('', 'opencode', 'codex', 'claude', 'freebuff', 'auto')]
     [string]$Target = '',
 
     [string]$Name = '',
@@ -54,6 +55,7 @@ $TargetMeta = @{
     opencode = 'OpenCode (16 agentes + modelos por agente)'
     codex    = 'Codex CLI (persona Atlas en AGENTS.md)'
     claude   = 'Claude Code (persona Atlas en CLAUDE.md)'
+    freebuff = 'Freebuff CLI (persona Atlas + party en AGENTS.md del proyecto)'
 }
 
 function Get-InstalledTargets {
@@ -61,6 +63,7 @@ function Get-InstalledTargets {
     if (Get-Command opencode -ErrorAction SilentlyContinue) { $result += 'opencode' }
     if (Get-Command codex -ErrorAction SilentlyContinue) { $result += 'codex' }
     if (Get-Command claude -ErrorAction SilentlyContinue) { $result += 'claude' }
+    if (Get-Command freebuff -ErrorAction SilentlyContinue) { $result += 'freebuff' }
     return $result
 }
 
@@ -154,9 +157,9 @@ function Write-ClaudeParty {
     return $true
 }
 
-function Write-CodexBundle {
-    # Codex: AGENTS.md jerarquico con persona Atlas + roster del party (sin subagentes con modelo)
-    $out = Join-Path $TargetDir 'AGENTS.md'
+function Write-RosterBundle {
+    # Codex/Freebuff: AGENTS.md jerarquico con persona Atlas + roster del party (sin subagentes con modelo)
+    param([string]$Target, [string]$Out)
     $persona = Get-Content $PersonaFile -Raw
     $roster = @()
     $roster += Get-ChildItem (Join-Path $Root 'core\classes\*.agent.md') -ErrorAction SilentlyContinue
@@ -166,10 +169,11 @@ function Write-CodexBundle {
         $roleLine = (Get-Content $r.FullName -TotalCount 1) -replace '^#\s+', ''
         "  - **$display** - $roleLine"
     }
-    $header = "# ARNES ARGOS - Atlas (entorno generado por 'argos target codex')`n`n"
+    $header = "# ARNES ARGOS - Atlas (entorno generado por 'argos target $Target')`n`n"
     $rosterBlock = "`n## Party ARNES (roles)`n`nSoy el orquestador de este party. Para tareas especializadas invoca el rol adecuado:`n`n" + ($rosterLines -join "`n") + "`n`nLa memoria del proyecto vive en .arnes/ (arnes.db, exports JSONL en .arnes/memory/export/). Consultala antes de decidir.`n`n"
-    Set-Content -Path $out -Value ($header + $persona + $rosterBlock) -Encoding UTF8
-    Write-Host ("  [OK] Entorno Codex desplegado: {0}" -f $out) -ForegroundColor Green
+    if (-not (Test-Path (Split-Path $Out -Parent))) { New-Item -ItemType Directory -Path (Split-Path $Out -Parent) -Force | Out-Null }
+    Set-Content -Path $Out -Value ($header + $persona + $rosterBlock) -Encoding UTF8
+    Write-Host ("  [OK] Entorno desplegado: {0}" -f $Out) -ForegroundColor Green
     return $true
 }
 
@@ -177,7 +181,7 @@ switch ($Command) {
     'show' {
         $current = Get-CurrentTarget
         Write-Host ("  Target actual: {0} ({1})" -f $current, $TargetMeta[$current]) -ForegroundColor Cyan
-        Write-Host '  Para cambiar: argos target set <opencode|codex|claude>' -ForegroundColor DarkGray
+        Write-Host '  Para cambiar: argos target set <opencode|codex|claude|freebuff>' -ForegroundColor DarkGray
         exit 0
     }
     'list' {
@@ -185,7 +189,7 @@ switch ($Command) {
         Write-Host '  ARNES ARGOS - TARGETS' -ForegroundColor Cyan
         $current = Get-CurrentTarget
         $installed = Get-InstalledTargets
-        foreach ($k in @('opencode', 'codex', 'claude')) {
+        foreach ($k in @('opencode', 'codex', 'claude', 'freebuff')) {
             $mark = if ($k -eq $current) { ' *' } else { '  ' }
             $status = if ($k -in $installed) { 'instalado' } else { 'NO instalado' }
             Write-Host ("  {0} {1,-10} {2}  [{3}]" -f $mark, $k, $TargetMeta[$k], $status) -ForegroundColor White
@@ -197,11 +201,11 @@ switch ($Command) {
     }
     'set' {
         if (-not $Name) {
-            Write-Host '  Uso: argos target set <opencode|codex|claude>' -ForegroundColor Yellow
+            Write-Host '  Uso: argos target set <opencode|codex|claude|freebuff>' -ForegroundColor Yellow
             exit 1
         }
         if (-not $TargetMeta.ContainsKey($Name)) {
-            Write-Host "  [!] Target invalido: $Name. Usa opencode, codex o claude." -ForegroundColor Yellow
+            Write-Host "  [!] Target invalido: $Name. Usa opencode, codex, claude o freebuff." -ForegroundColor Yellow
             exit 1
         }
         if (-not (Test-Path $ConfigDir)) { New-Item -ItemType Directory -Path $ConfigDir -Force | Out-Null }
@@ -234,7 +238,7 @@ switch ($Command) {
                     for ($i = 0; $i -lt $installed.Count; $i++) {
                         Write-Host ("  [{0}] {1} - {2}" -f ($i + 1), $installed[$i], $TargetMeta[$installed[$i]]) -ForegroundColor White
                     }
-                    $sel = Read-Input '  Elige (1-3)'
+                    $sel = Read-Input ("  Elige (1-{0})" -f $installed.Count)
                     $idx = 0
                     if ([int]::TryParse($sel, [ref]$idx) -and $idx -ge 1 -and $idx -le $installed.Count) {
                         $resolved = $installed[$idx - 1]
@@ -266,7 +270,7 @@ switch ($Command) {
             }
             'codex' {
                 Write-Host '  [1/2] Desplegando entorno a Codex...' -ForegroundColor Cyan
-                [void](Write-CodexBundle)
+                [void](Write-RosterBundle -Target 'codex' -Out (Join-Path $TargetDir 'AGENTS.md'))
                 Write-Host '  [2/2] Abriendo Codex...' -ForegroundColor Cyan
                 if ($NoLaunch) { exit 0 }
                 if (-not (Get-Command codex -ErrorAction SilentlyContinue)) {
@@ -278,6 +282,30 @@ switch ($Command) {
                 } else {
                     & codex
                 }
+            }
+            'freebuff' {
+                Write-Host '  [1/2] Desplegando entorno a Freebuff (AGENTS.md del proyecto)...' -ForegroundColor Cyan
+                # Freebuff lee AGENTS.md del root donde corre: el proyecto actual (o -TargetDir en tests)
+                $freebuffDir = if ($PSBoundParameters.ContainsKey('TargetDir')) { $TargetDir } else { (Get-Location).Path }
+                $fbOut = Join-Path $freebuffDir 'AGENTS.md'
+                # AGENTS.md del proyecto es territorio del usuario: respaldar antes de sobrescribir
+                if (Test-Path $fbOut) {
+                    $ts = Get-Date -Format 'yyyyMMdd-HHmmss'
+                    $bak = Join-Path $freebuffDir "AGENTS.md.bak-$ts"
+                    Copy-Item $fbOut $bak -Force
+                    Write-Host ("  [~] AGENTS.md existente respaldado: {0}" -f (Split-Path $bak -Leaf)) -ForegroundColor DarkGray
+                }
+                [void](Write-RosterBundle -Target 'freebuff' -Out $fbOut)
+                Write-Host '  [2/2] Abriendo Freebuff (gratis, sin API keys)...' -ForegroundColor Cyan
+                if ($NoLaunch) { exit 0 }
+                if (-not (Get-Command freebuff -ErrorAction SilentlyContinue)) {
+                    Write-Host '  [!] freebuff no encontrado. Instala: npm install -g freebuff' -ForegroundColor Red
+                    exit 1
+                }
+                if ($Quest) {
+                    Write-Host '  Freebuff es una TUI interactiva: escribe tu quest dentro del CLI.' -ForegroundColor Yellow
+                }
+                & freebuff
             }
             'claude' {
                 Write-Host '  [1/3] Persona Atlas a CLAUDE.md...' -ForegroundColor Cyan

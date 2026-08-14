@@ -43,7 +43,7 @@
 argos doctor     # o menú [8] Diagnóstico de prerequisitos
 ```
 
-Revisa los 9 puntos (PowerShell, Python+sqlite3, Node+npm, OpenCode, Git, conexiones globales, modelos por agente, agentes instalados, Docker opcional) y te dice exactamente qué instalar si algo falta.
+Revisa los 10 puntos (PowerShell, Python+sqlite3, Node+npm, OpenCode, Freebuff, Git, conexiones globales, modelos por agente, agentes instalados, Docker opcional) y te dice exactamente qué instalar si algo falta.
 
 ### Estado actual
 
@@ -61,21 +61,21 @@ FDD y ADR propias. El roadmap y las tareas todavía pendientes están en
 
 ```powershell
 # Windows (PowerShell)
-iwr -useb https://raw.githubusercontent.com/<TU-USUARIO>/arnes/main/install.ps1 | iex
+iwr -useb https://raw.githubusercontent.com/mauriragna88/arnes/main/install.ps1 | iex
 ```
 
 ```bash
 # macOS / Linux
-curl -fsSL https://raw.githubusercontent.com/<TU-USUARIO>/arnes/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/mauriragna88/arnes/main/install.sh | bash
 ```
 
-> Reemplaza `<TU-USUARIO>` por tu usuario de GitHub. El instalador clona el repo en `~/arnes`,
+> El instalador clona el repo en `~/arnes`,
 > instala OpenCode si falta, sincroniza los 16 agentes y deja el comando `argos` listo.
 
 ### Opción B — Git clone + npm
 
 ```bash
-git clone https://github.com/<TU-USUARIO>/arnes.git
+git clone https://github.com/mauriragna88/arnes.git
 cd arnes
 npm install -g .        # instala el comando `argos` global y corre el postinstall (sync de agentes)
 ```
@@ -84,7 +84,7 @@ npm install -g .        # instala el comando `argos` global y corre el postinsta
 
 ```bash
 # 1. Clona el repo
-git clone https://github.com/<TU-USUARIO>/arnes.git && cd arnes
+git clone https://github.com/mauriragna88/arnes.git && cd arnes
 
 # 2. Construye la imagen y entra al entorno ARGOS (monta TU carpeta de trabajo)
 docker compose run --rm arnes
@@ -158,7 +158,7 @@ Si el comando muestra el banner y tarda en avanzar, consulta
 ### Comandos útiles
 
 ```powershell
-argos doctor     # diagnóstico de prerequisitos (9 puntos)
+argos doctor     # diagnóstico de prerequisitos (10 puntos)
 argos status     # estado del proyecto + resumen XP
 argos stats      # dashboard: quests, tokens, racha, top agentes
 argos xp         # ranking de experiencia por agente (nivel)
@@ -193,24 +193,26 @@ lo pendiente.
 El estado se guarda en `.arnes/goal-state.json` (incluye el historial); puedes retomar
 con `-Resume`.
 
-### Elegir el entorno de trabajo (OpenCode / Codex / Claude)
+### Elegir el entorno de trabajo (OpenCode / Codex / Claude / Freebuff)
 
 ```powershell
 argos                    # menú: [9] Abrir entorno → usa tu default o muestra el selector
 argos target list        # CLIs instalados + target actual
-argos target set codex   # fija el default (opencode | codex | claude) — [9] ya no pregunta
+argos target set freebuff   # fija el default (opencode | codex | claude | freebuff) — [9] ya no pregunta
 argos target codex       # abre Codex con la persona Atlas cargada
 argos target claude "haz un login"   # abre Claude con un quest inicial
+argos target freebuff    # abre Freebuff con el arnés ARNES cargado (gratis, sin API keys)
 argos target opencode    # flujo original (16 agentes + modelos por agente)
 ```
 
 - **opencode**: sincroniza los 16 agentes RPG con su modelo propio y abre `opencode --agent atlas-player`.
 - **codex**: despliega la persona Atlas + roster del party a `~/.codex/AGENTS.md` y abre `codex` (o `codex exec <quest>`).
 - **claude**: despliega la persona Atlas a `~/.claude/CLAUDE.md` + los **16 agentes del party** como subagentes (`~/.claude/agents/*.md`) y abre `claude` (o `claude -p <quest>`).
+- **freebuff**: despliega la persona Atlas + roster del party a `AGENTS.md` del proyecto y abre `freebuff` (CLI gratuito con modelos de uso libre: DeepSeek V4 Flash/Pro, GPT-5.6 Luna, etc.).
 
-La memoria del proyecto (`.arnes/arnes.db`, exports JSONL) queda accesible en los tres
+La memoria del proyecto (`.arnes/arnes.db`, exports JSONL) queda accesible en los cuatro
 entornos. Los modelos por agente y el motor OMO son capacidades exclusivas de OpenCode
-(formato del CLI); en Codex/Claude el modelo lo gestiona cada CLI.
+(formato del CLI); en Codex/Claude/Freebuff el modelo lo gestiona cada CLI.
 
 ### Suite de tests
 

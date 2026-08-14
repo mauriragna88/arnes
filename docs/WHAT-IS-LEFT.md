@@ -128,7 +128,7 @@ Este archivo resume el estado heredado; el plan futuro vive en PLAN-ARNES.md.
 **Estado: todo commiteado y pusheado (master, árbol limpio).** Último commit: `f3ebaa6`.
 
 ### Ya implementado hoy (no rehacer)
-- `argos target` (selector opencode/codex/claude con party completo en Claude y roster en Codex).
+- `argos target` (selector opencode/codex/claude/freebuff con party completo en Claude y roster en Codex/Freebuff).
 - `argos goal` / `/autowork` (modo autónomo por objetivo con memoria: remediation → siguiente prompt).
 - `argos xp`, `argos stats`, `argos theme`.
 - Varys guarda la bitácora de secuencia (`varys/evidence-packs/<quest>`); Atlas decide con CONTEXTO DE MEMORIA.

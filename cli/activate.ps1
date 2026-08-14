@@ -31,6 +31,7 @@ function DetectPlatform {
     if (Test-Path "$env:USERPROFILE\.config\opencode") { $d+="OpenCode" }
     if (Get-Command codex -EA SilentlyContinue) { $d+="Codex" }
     if ((Test-Path "$env:USERPROFILE\.claude") -or (Get-Command claude -EA SilentlyContinue)) { $d+="Claude" }
+    if (Get-Command freebuff -EA SilentlyContinue) { $d+="Freebuff" }
     if ($d.Count -eq 1) { return $d[0] }
     if ($d.Count -gt 1) {
         Write-Host "  Detectadas varias plataformas:" -ForegroundColor $WHITE
@@ -38,8 +39,8 @@ function DetectPlatform {
         $sel = Read-Host "Elige"
         return $d[[int]$sel-1]
     }
-    Write-Host "  [1] OpenCode  [2] Codex  [3] Claude" -ForegroundColor $WHITE
-    return @("OpenCode","Codex","Claude")[[int](Read-Host "Elige")-1]
+    Write-Host "  [1] OpenCode  [2] Codex  [3] Claude  [4] Freebuff" -ForegroundColor $WHITE
+    return @("OpenCode","Codex","Claude","Freebuff")[[int](Read-Host "Elige")-1]
 }
 
 # === SYNC AGENTES A OPENCODE ===
@@ -468,6 +469,9 @@ if ($platform -eq "OpenCode") {
 } elseif ($platform -eq "Claude") {
     Warn "Claude launch pendiente. Lanza claude manualmente e invoca @atlas-player."
     EvenatanFallback
+} elseif ($platform -eq "Freebuff") {
+    # Freebuff: reutiliza el target probado (despliega AGENTS.md con Atlas + party y abre el CLI)
+    & (Join-Path $PSScriptRoot 'argos-target.ps1') -Target freebuff -Quest $initialQuest
 } else {
     EvenatanFallback
 }

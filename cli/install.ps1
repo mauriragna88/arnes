@@ -2,16 +2,16 @@
 # install.ps1 - ARNES ARGOS Installer (oficial)
 # =============================================
 # Uso: pwsh ./install.ps1
-# O one-liner: iwr -useb https://raw.githubusercontent.com/<TU-USUARIO>/arnes/main/install.ps1 | iex
+# O one-liner: iwr -useb https://raw.githubusercontent.com/mauriragna88/arnes/main/install.ps1 | iex
 # Parametros:
-#   -RepoUrl https://github.com/<TU-USUARIO>/arnes.git   (URL del repo a instalar)
+#   -RepoUrl https://github.com/mauriragna88/arnes.git   (URL del repo a instalar)
 #   -Branch main
 # Instala el harness en ~/arnes + wrappers 'argos'/'atlas' globales + sync de agentes.
 
 #Requires -Version 5.1
 [CmdletBinding()]
 param(
-    [string]$RepoUrl = "https://github.com/<TU-USUARIO>/arnes.git",
+    [string]$RepoUrl = "https://github.com/mauriragna88/arnes.git",
     [string]$Branch = "main"
 )
 
@@ -20,7 +20,7 @@ $ErrorActionPreference = "Stop"
 if ($RepoUrl -like "*<TU-USUARIO>*") {
     Write-Host ""
     Write-Host "  [X] Falta tu URL de GitHub. Usa:" -ForegroundColor Red
-    Write-Host "      pwsh ./install.ps1 -RepoUrl https://github.com/TU-USUARIO/arnes.git" -ForegroundColor Yellow
+    Write-Host "      pwsh ./install.ps1 -RepoUrl https://github.com/mauriragna88/arnes.git" -ForegroundColor Yellow
     exit 1
 }
 

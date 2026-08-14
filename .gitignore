@@ -16,6 +16,7 @@
 .arnes/memory/export/
 .arnes/loop-state.json
 .arnes/circuit-breaker.json
+.arnes/backups/
 
 # ===== Credenciales OpenCode =====
 ~/.config/opencode/auth.json

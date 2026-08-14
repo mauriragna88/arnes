@@ -91,7 +91,7 @@ El usuario decidió usar **OpenCode como el entorno interactivo de trabajo** (su
 - **README**: manual de instalación en la página principal (3 opciones: instalador directo, npm, Docker) + quickstart + docs.
 - `atlas.ps1 --sync`: modo headless para instaladores (sync agentes + skills + memoria + despliegue de modelos).
 
-**Pendiente usuario**: subir repo a GitHub (definir URL, reemplazar `<TU-USUARIO>` en README/installers) y decidir si se remueve el plugin de memoria de terceros del `opencode.json` global (solo agentes SDD legacy).
+**Pendiente usuario**: subir repo a GitHub (URL definida con usuario `mauriragna88`, placeholder reemplazado en README; pendiente en installers) y decidir si se remueve el plugin de memoria de terceros del `opencode.json` global (solo agentes SDD legacy).
 
 ### ✅ Independencia total — LIMPIEZA COMPLETADA (2026-08-06)
 
