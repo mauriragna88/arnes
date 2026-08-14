@@ -1,6 +1,6 @@
 ﻿# arnes activate - CLI Final Atlas Harness RPG
 # =============================================
-# Uso: atlas (desde cualquier carpeta) o .\cli\activate.ps1
+# Uso: atlas (desde cualquier carpeta). El antiguo entry point .\cli\activate.ps1 vive en legacy/
 # Detecta plataforma, sync agentes a OpenCode, lanza OpenCode con Atlas como primary
 # 12 agentes: Atlas + 6 party + 3 auditores + 3 pending
 

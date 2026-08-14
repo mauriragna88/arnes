@@ -19,6 +19,9 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
+# Skills por nivel: helper de unlocks desde skill-unlocks.ps1
+. (Join-Path $PSScriptRoot 'skill-unlocks.ps1')
+
 # Tema activo: colores compartidos desde theme-colors.ps1
 . (Join-Path $PSScriptRoot 'theme-colors.ps1')
 $theme = Get-ThemeColors
@@ -68,9 +71,25 @@ if ($Agent) {
         exit 1
     }
     $xp = $xpMap[$name]
+    $lvl = Get-Level $xp
     Write-Host ''
-    Write-Host "  $name - Nivel $(Get-Level $xp) (XP $xp)" -ForegroundColor $theme.Primary
+    Write-Host "  $name - Nivel $lvl (XP $xp)" -ForegroundColor $theme.Primary
     Write-Host "    Quests: $($questMap[$name]) | Tokens usados: $($tokenMap[$name])" -ForegroundColor $theme.Accent
+
+    $skillFile = Get-AgentSkillFile $name
+    if ($skillFile -and (Test-Path $skillFile)) {
+        Write-Host ''
+        Write-Host '    Skills unlocked:' -ForegroundColor $theme.Accent
+        for ($l = 1; $l -le $lvl; $l++) {
+            $atLevel = @(Get-SkillsForLevel $name $l)
+            if ($atLevel.Count -gt 0) {
+                Write-Host ("      [Level {0}] {1}" -f $l, ($atLevel -join ', ')) -ForegroundColor $theme.Accent
+            }
+        }
+    }
+    else {
+        Write-Host '    Skills: N/A' -ForegroundColor $theme.Accent
+    }
     Write-Host ''
     exit 0
 }
@@ -82,6 +101,9 @@ Write-Host ''
 $rows = $xpMap.GetEnumerator() | Sort-Object Value -Descending
 foreach ($r in $rows) {
     $lvl = Get-Level ([int]$r.Value)
-    Write-Host ("  {0,-12} Nivel {1,-4} XP {2,-6} Quest(s) {3,-3} Tokens {4}" -f $r.Key, $lvl, $r.Value, $questMap[$r.Key], $tokenMap[$r.Key]) -ForegroundColor $theme.Accent
+    $counts = Get-SkillCounts $r.Key $lvl
+    $skillsText = 'N/A'
+    if ($counts.Total -gt 0) { $skillsText = '{0}/{1}' -f $counts.Unlocked, $counts.Total }
+    Write-Host ("  {0,-12} Nivel {1,-4} XP {2,-6} Quest(s) {3,-3} Tokens {4,-6} Skills: {5}" -f $r.Key, $lvl, $r.Value, $questMap[$r.Key], $tokenMap[$r.Key], $skillsText) -ForegroundColor $theme.Accent
 }
 Write-Host ''
