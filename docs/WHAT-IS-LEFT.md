@@ -1,7 +1,7 @@
 # Estado del Proyecto — Que nos Falta
 
 > creado: 2026-07-25
-> actualizado: 2026-08-09 (estado del CLI Argos y documentación para GitHub)
+> actualizado: 2026-08-14 (estado del CLI Argos y documentación para GitHub)
 
 ## ⚠️ IMPORTANTE — LEE PRIMERO `docs/PLAN-ARNES.md`
 
@@ -25,6 +25,14 @@ Este archivo resume el estado heredado; el plan futuro vive en PLAN-ARNES.md.
 - [x] Comandos `argos xp`, `argos stats` y `argos theme`
 - [x] Doctor con detección de agentes faltantes por nombre
 - [x] Release v0.1.0 publicado en GitHub
+- [x] `argos target freebuff` — nuevo target con modelos abiertos y despliegue de `AGENTS.md` al proyecto (commit `319f1e2`)
+- [x] Instaladores (`install.ps1`, `install.sh`, `installer-snippet.sh`) con `mauriragna88` y corrección CRLF en `install.sh` (commit `319f1e2`)
+- [x] `--test-force-exit` en `package.json` para evitar que `npm test` se quede colgado (commit `af12976`)
+- [x] OSMA V7 — Episode Pattern Completion + Reactivation (ADR-010), 60/60 tests (commit `46de8cc`)
+- [x] Comando `osma-stats` para resumir el estado cerebral V4-V7, defensivo ante tablas faltantes, 49/49 tests (commit `4bf3bc1`)
+- [x] Quest Recommender Gate — `quest-detector.ps1 -Recommend`, `atlas-orchestrator.ps1 -Gate always|auto|off` y `preferences.json` con `quest_gate`, 6/6 tests (commit `82ca6a9`)
+- [x] Recuperación de confianza de Ansem: `trust_score` restaurado de 0.5 a 0.75 tras `osma-stats` PASS (auditoría Tywin 7/7)
+- [x] `argos doctor` con 10 puntos de diagnóstico, incluida detección de Docker
 
 - [x] Estructura SDD completa (proposal, spec, design, tasks)
 - [x] Config base `.arnes/config.json` con plataforma/suscripcion/party
@@ -67,7 +75,7 @@ Este archivo resume el estado heredado; el plan futuro vive en PLAN-ARNES.md.
 | **FASE 1 — ARNES BRAIN** | arnes.db (SQLite+FTS5) + arnes-memory CLI + skills memoria | Hecho |
 | **FASE 2 — ARNES GRAPH** | Capa de relaciones (edges) + arnes-graph CLI | Hecho |
 | **FASE 3 — ARNES SDD** | Skills arnes-sdd-* propias | Hecho |
-| **FASE 4 — ARNES FDD** | Skills arnes-fdd-* + features | F1 (XP) · F2 (temas) · F3 (stats) done · F4 blocked |
+| **FASE 4 — ARNES FDD** | Skills arnes-fdd-* + features | F1 (XP) · F2 (temas) · F3 (stats) pendientes · F4 bloqueada |
 | **FASE 5 — ARNES ADR** | Registro de decisiones + skill arnes-adr | Hecho |
 | **FASE 6 — ARGOS CLI + GITHUB** | CLI, modelos, diagnóstico, documentación y publicación | Publicado (release v0.1.0) |
 
@@ -90,7 +98,7 @@ Este archivo resume el estado heredado; el plan futuro vive en PLAN-ARNES.md.
 7. **XP system en CLI**
    - Trackear XP ganada y guardarlodefic.json
    - Mostrar nivel en /party y /status
-   - Skills se desbloquean segun unlocks/skills cuando sube level
+   - Skills se desbloquean segun unlocks/skills cuando sube level (pendiente; hoy solo muestra niveles)
 
 ### Baja Prioridad — Nice to have
 
@@ -99,11 +107,20 @@ Este archivo resume el estado heredado; el plan futuro vive en PLAN-ARNES.md.
 
 9. **Stats dashboard**
    - Total tokens usados por sesion/dia/semana
-   - Costo aproximado en USD si api tiene pricing
+   - Costo aproximado en USD si api tiene pricing (pendiente; hoy muestra tokens)
    - Racha de quests completados
 
 10. **Marketplace publish**
-    - subir Atlas RPG a Smithery y skills.sh para que otros la puedan instalar
+     - subir Atlas RPG a Smithery y skills.sh para que otros la puedan instalar (bloqueado hasta publicar en npm)
+
+11. **Limpieza y pruebas pendientes**
+    - Eliminar la causa raíz de los handles abiertos de SQLite en fixtures de tests; `--test-force-exit` solo mitiga el problema.
+    - Eliminar o mover a `legacy/` `activate.ps1` / `evenatan-ui.ps1`, actualmente marcados como deprecados.
+
+12. **Tareas externas del usuario**
+    - Rotar la API key de B.AI.
+    - Probar una sesión real.
+    - Publicar el paquete en npm.
 
 ## Decisiones Tomadas (2026-08-05)
 
@@ -123,14 +140,17 @@ Este archivo resume el estado heredado; el plan futuro vive en PLAN-ARNES.md.
 - [`CONTRIBUTING.md`](../CONTRIBUTING.md) — contribución y validación.
 - [`ARGOS-STARTUP.md`](./ARGOS-STARTUP.md) — diagnóstico del arranque.
 
-## SIGUIENTE SESIÓN (guardado 2026-08-10 — para retomar con "continua")
+## SIGUIENTE SESIÓN (guardado 2026-08-14 — para retomar con "continua")
 
-**Estado: todo commiteado y pusheado (master, árbol limpio).** Último commit: `f3ebaa6`.
+**Estado: todo commiteado y pusheado (master, árbol limpio).** Último commit: `82ca6a9`.
 
 ### Ya implementado hoy (no rehacer)
-- `argos target` (selector opencode/codex/claude/freebuff con party completo en Claude y roster en Codex/Freebuff).
+- `argos target` (selector opencode/codex/claude/freebuff con party completo en Claude y roster en Codex/Freebuff); `argos target freebuff` ya está implementado.
 - `argos goal` / `/autowork` (modo autónomo por objetivo con memoria: remediation → siguiente prompt).
 - `argos xp`, `argos stats`, `argos theme`.
+- OSMA V7 (Episode Pattern Completion + Reactivation), `osma-stats` y recuperación de trust de Ansem.
+- Quest Recommender Gate (`-Recommend`, `-Gate always|auto|off`, `quest_gate`) ya está completado.
+- Instaladores actualizados, corrección CRLF en `install.sh`, `--test-force-exit` y `argos doctor` con Docker como punto 10.
 - Varys guarda la bitácora de secuencia (`varys/evidence-packs/<quest>`); Atlas decide con CONTEXTO DE MEMORIA.
 - Suite unificada `npm test` + CI + grafo activado + release v0.1.0 + paquete npm preparado.
 
@@ -146,6 +166,7 @@ Este archivo resume el estado heredado; el plan futuro vive en PLAN-ARNES.md.
 - F3 stats: costo aproximado USD por sesión/día.
 - F1: desbloqueo de skills por nivel de XP (hoy solo muestra niveles).
 - Limpieza legado: `activate.ps1` / `evenatan-ui.ps1` (marcado deprecado, no borrado).
+- Handles abiertos de SQLite en fixtures de tests: corregir la causa raíz; `--test-force-exit` es una mitigación.
 - Si la prueba real falla en la cadena quest/party: depurar con el stub `tests/stubs/fake-cycle.ps1`.
 
 ### Regla de retoma
