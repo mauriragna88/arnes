@@ -6,7 +6,7 @@ ARGOS STATS - dashboard de actividad basado en quest-ledger.
 .DESCRIPTION
 Lee `.arnes/quest-ledger.json` y muestra: quests totales, tokens usados,
 costo estimado en USD, desglose por dia (ultimos 7), por agente, tasa de
-exito y racha de dias activos.
+exito, racha actual y mejor racha historica de dias activos.
 
 .EXAMPLE
 .\cli\argos-stats.ps1
@@ -97,6 +97,25 @@ while ($activeDays -contains $cursor.ToString('yyyy-MM-dd')) {
     $cursor = $cursor.AddDays(-1)
 }
 
+# Mejor racha historica: recorrer todos los dias activos en orden ascendente
+# y encontrar la secuencia consecutiva mas larga.
+$sortedDays = @($byDay.Keys | Sort-Object)
+$bestStreak = 0
+$currentRun = 0
+$prevDate = $null
+foreach ($dayKey in $sortedDays) {
+    $parsed = [datetime]::MinValue
+    if (-not [DateTime]::TryParse($dayKey, [ref]$parsed)) { continue }
+    $parsed = $parsed.Date
+    if ($prevDate -ne $null -and $parsed.Date -eq $prevDate.AddDays(1)) {
+        $currentRun++
+    } else {
+        $currentRun = 1
+    }
+    if ($currentRun -gt $bestStreak) { $bestStreak = $currentRun }
+    $prevDate = $parsed
+}
+
 $successPct = [math]::Round(($passCount / $quests.Count) * 100, 1)
 $topAgent = ($byAgent.GetEnumerator() | Sort-Object { $_.Value.tokens } -Descending | Select-Object -First 1)
 
@@ -108,7 +127,8 @@ Write-Host ("  Tasa de exito:   {0}%  ({1} PASS / {2})" -f $successPct, $passCou
 Write-Host ("  Tokens usados:   {0}" -f $totalTokens) -ForegroundColor $theme.Accent
 $totalCostStr = ('${0:N2}' -f $totalCost)
 Write-Host ("  Costo est.:      {0} USD" -f $totalCostStr) -ForegroundColor $theme.Accent
-Write-Host ("  Racha de dias:   {0}" -f $streak) -ForegroundColor $theme.Accent
+Write-Host ("  Racha actual:   {0} dias" -f $streak) -ForegroundColor $theme.Accent
+Write-Host ("  Mejor racha:    {0} dias" -f $bestStreak) -ForegroundColor $theme.Accent
 Write-Host ("  Top por tokens:  {0} ({1} tkns, {2} quests)" -f $topAgent.Key, $topAgent.Value.tokens, $topAgent.Value.quests) -ForegroundColor $theme.Accent
 
 Write-Host ''

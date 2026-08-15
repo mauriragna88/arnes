@@ -21,12 +21,18 @@ function Assert-That {
 
 New-Item -ItemType Directory -Path $workArnes -Force | Out-Null
 try {
-    # Ledger conocido: 3 quests, 2 PASS + 1 FAIL, tokens 100+200+300=600
+    # Ledger conocido: 5 quests en 3 dias consecutivos + 1 dia suelto.
+    # Dias: hoy, ayer, antier (3 consecutivos) + hace 5 dias (suelto).
+    # Mejor racha = 3, racha actual = 3 (si hoy cuenta) o 2 si hoy no activity.
+    # Aqui hoy tiene quests -> racha actual = 3, mejor = 3.
+    $today = (Get-Date).Date
     $ledger = [ordered]@{
         quests = @(
-            [ordered]@{ agent = 'vivi'; verdict = 'PASS'; tokens_used = 100; quest_id = 'T-1'; timestamp = (Get-Date).AddDays(-1).ToString('o') },
-            [ordered]@{ agent = 'ansem'; verdict = 'PASS'; tokens_used = 200; quest_id = 'T-2'; timestamp = (Get-Date).ToString('o') },
-            [ordered]@{ agent = 'kuja'; verdict = 'FAIL'; tokens_used = 300; quest_id = 'T-3'; timestamp = (Get-Date).ToString('o') }
+            [ordered]@{ agent = 'vivi';  verdict = 'PASS'; tokens_used = 100; quest_id = 'T-1'; timestamp = $today.AddDays(-5).ToString('o') },
+            [ordered]@{ agent = 'ansem'; verdict = 'PASS'; tokens_used = 200; quest_id = 'T-2'; timestamp = $today.AddDays(-2).ToString('o') },
+            [ordered]@{ agent = 'kuja';  verdict = 'PASS'; tokens_used = 300; quest_id = 'T-3'; timestamp = $today.AddDays(-1).ToString('o') },
+            [ordered]@{ agent = 'eiko';   verdict = 'PASS'; tokens_used = 150; quest_id = 'T-4'; timestamp = $today.ToString('o') },
+            [ordered]@{ agent = 'vivi';  verdict = 'FAIL'; tokens_used = 250; quest_id = 'T-5'; timestamp = $today.ToString('o') }
         )
     } | ConvertTo-Json -Depth 5
     Set-Content -LiteralPath (Join-Path $workArnes 'quest-ledger.json') -Value $ledger -Encoding UTF8
@@ -35,9 +41,11 @@ try {
     try {
         # ==== STATS ====
         $stats = (& powershell -NoProfile -ExecutionPolicy Bypass -File $StatsCli | Out-String)
-        Assert-That ($stats -match 'Quests:\s+3') "stats: 3 quests -> $stats"
-        Assert-That ($stats -match 'Tasa de exito:\s+66\.7%') "stats: 2/3 PASS = 66.7% -> $stats"
-        Assert-That ($stats -match 'Tokens usados:\s+600') "stats: tokens 600 -> $stats"
+        Assert-That ($stats -match 'Quests:\s+5') "stats: 5 quests -> $stats"
+        Assert-That ($stats -match 'Tasa de exito:\s+80%') "stats: 4/5 PASS = 80% -> $stats"
+        Assert-That ($stats -match 'Tokens usados:\s+1000') "stats: tokens 1000 -> $stats"
+        Assert-That ($stats -match 'Racha actual:\s+3 dias') "stats: racha actual 3 -> $stats"
+        Assert-That ($stats -match 'Mejor racha:\s+3 dias') "stats: mejor racha 3 -> $stats"
 
         # ==== THEME ====
         $setOut = (& powershell -NoProfile -ExecutionPolicy Bypass -File $ThemeCli set -Name vivi | Out-String)
@@ -47,7 +55,7 @@ try {
         $showOut = (& powershell -NoProfile -ExecutionPolicy Bypass -File $ThemeCli show | Out-String)
         Assert-That ($showOut -match 'vivi') "theme show refleja vivi -> $showOut"
 
-        Write-Output 'PASS argos-stats-theme: dashboard calcula bien y tema persiste'
+        Write-Output 'PASS argos-stats-theme: dashboard, racha actual + mejor racha, y tema persiste'
         exit 0
     } finally { Pop-Location }
 } finally {
