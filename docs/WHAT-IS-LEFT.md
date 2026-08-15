@@ -1,7 +1,7 @@
 # Estado del Proyecto — Que nos Falta
 
 > creado: 2026-07-25
-> actualizado: 2026-08-14 (estado del CLI Argos y documentación para GitHub)
+> actualizado: 2026-08-14 (F1+F2+F3+fix handles SQLite commiteados; doc alineado con master)
 
 ## ⚠️ IMPORTANTE — LEE PRIMERO `docs/PLAN-ARNES.md`
 
@@ -75,7 +75,7 @@ Este archivo resume el estado heredado; el plan futuro vive en PLAN-ARNES.md.
 | **FASE 1 — ARNES BRAIN** | arnes.db (SQLite+FTS5) + arnes-memory CLI + skills memoria | Hecho |
 | **FASE 2 — ARNES GRAPH** | Capa de relaciones (edges) + arnes-graph CLI | Hecho |
 | **FASE 3 — ARNES SDD** | Skills arnes-sdd-* propias | Hecho |
-| **FASE 4 — ARNES FDD** | Skills arnes-fdd-* + features | F1 (XP) · F2 (temas) · F3 (stats) pendientes · F4 bloqueada |
+| **FASE 4 — ARNES FDD** | Skills arnes-fdd-* + features | F1 (XP unlocks) · F2 (temas UI) · F3 (USD stats) · fix handles SQLite — Hecho · F4 (marketplace) bloqueada |
 | **FASE 5 — ARNES ADR** | Registro de decisiones + skill arnes-adr | Hecho |
 | **FASE 6 — ARGOS CLI + GITHUB** | CLI, modelos, diagnóstico, documentación y publicación | Publicado (release v0.1.0) |
 
@@ -96,26 +96,29 @@ Este archivo resume el estado heredado; el plan futuro vive en PLAN-ARNES.md.
 ### Media Prioridad — Quality of Life
 
 7. **XP system en CLI**
-   - Trackear XP ganada y guardarlodefic.json
+   - Trackear XP ganada y guardarla en config.json
    - Mostrar nivel en /party y /status
-   - Skills se desbloquean segun unlocks/skills cuando sube level (pendiente; hoy solo muestra niveles)
+   - Skills se desbloquean segun unlocks/skills cuando sube level — Hecho (commit `cef365c`)
+     - `cli/skill-unlocks.ps1` mapea 9 agentes a sus skill JSONs y muestra skills desbloqueadas por nivel en `argos xp`.
 
 ### Baja Prioridad — Nice to have
 
 8. **Temas personalizables**
-   - Atlas rojo-negro, Tema Vivi (violeta), Tema Amarant (bronce), etc.
+   - Atlas rojo-negro, Tema Vivi (violeta), Tema Amarant (bronce), etc. — Hecho (commit `b55228f`)
+     - `cli/theme-colors.ps1` aplica el color de acento del tema activo a `argos-chat`, `argos-xp` y `argos-stats`.
 
 9. **Stats dashboard**
    - Total tokens usados por sesion/dia/semana
-   - Costo aproximado en USD si api tiene pricing (pendiente; hoy muestra tokens)
+   - Costo aproximado en USD por sesion/dia — Hecho (commit `b55228f`)
+     - `cli/pricing.ps1` + `argos stats` muestran costo USD por agente y por día.
    - Racha de quests completados
 
 10. **Marketplace publish**
      - subir Atlas RPG a Smithery y skills.sh para que otros la puedan instalar (bloqueado hasta publicar en npm)
 
 11. **Limpieza y pruebas pendientes**
-    - Eliminar la causa raíz de los handles abiertos de SQLite en fixtures de tests; `--test-force-exit` solo mitiga el problema.
-    - Eliminar o mover a `legacy/` `activate.ps1` / `evenatan-ui.ps1`, actualmente marcados como deprecados.
+    - Eliminar la causa raíz de los handles abiertos de SQLite en fixtures de tests — Hecho (commit `932ff57`, `--test-force-exit` eliminado, 63/63 pass en 70s).
+    - ~~Eliminar o mover a `legacy/` `activate.ps1` / `evenatan-ui.ps1`, actualmente marcados como deprecados.~~ — Hecho (commit `cef365c`, movidos a `legacy/` con `README.md` explicativo).
 
 12. **Tareas externas del usuario**
     - Rotar la API key de B.AI.
@@ -142,7 +145,7 @@ Este archivo resume el estado heredado; el plan futuro vive en PLAN-ARNES.md.
 
 ## SIGUIENTE SESIÓN (guardado 2026-08-14 — para retomar con "continua")
 
-**Estado: todo commiteado y pusheado (master, árbol limpio).** Último commit: `82ca6a9`.
+**Estado: todo commiteado y pusheado (master, árbol limpio).** Último commit: `932ff57` (fix handles SQLite). F1, F2, F3 y fix handles ya en master.
 
 ### Ya implementado hoy (no rehacer)
 - `argos target` (selector opencode/codex/claude/freebuff con party completo en Claude y roster en Codex/Freebuff); `argos target freebuff` ya está implementado.
@@ -153,6 +156,11 @@ Este archivo resume el estado heredado; el plan futuro vive en PLAN-ARNES.md.
 - Instaladores actualizados, corrección CRLF en `install.sh`, `--test-force-exit` y `argos doctor` con Docker como punto 10.
 - Varys guarda la bitácora de secuencia (`varys/evidence-packs/<quest>`); Atlas decide con CONTEXTO DE MEMORIA.
 - Suite unificada `npm test` + CI + grafo activado + release v0.1.0 + paquete npm preparado.
+- **F1 (skill unlocks por XP)** en `argos xp` vía `cli/skill-unlocks.ps1` (commit `cef365c`).
+- **F2 (temas en UIs)** — `argos-chat`, `argos-xp`, `argos-stats` usan `cli/theme-colors.ps1` (commit `b55228f`).
+- **F3 (USD en stats)** — `argos stats` muestra costo USD por agente y por día usando `cli/pricing.ps1` (commit `b55228f`).
+- **Fix handles SQLite** — `arnes_brain.py` cierra idempotente + `atexit`+`__del__`; `argos-brain.ts` mata hijo tras timeout; `--test-force-exit` eliminado; 63/63 pass (commit `932ff57`).
+- **Legacy cleanup** — `activate.ps1`, `evenatan-ui.ps1` movidos a `legacy/` con `README.md` (commit `cef365c`).
 
 ### Pendiente PARA EL USUARIO (externo, no es código)
 1. **Probar la sesión real**: `argos quest "<algo>"`, `argos goal "<objetivo>" -MaxIterations 3`,
@@ -162,28 +170,30 @@ Este archivo resume el estado heredado; el plan futuro vive en PLAN-ARNES.md.
 4. **F4 del FDD**: publicar Atlas en Smithery y skills.sh (requiere el npm publish antes).
 
 ### Pendiente DE CÓDIGO si el usuario lo pide
-- F2 temas: aplicar el tema elegido (`argos theme set X`) a las UI reales (hoy solo persiste).
-- F3 stats: costo aproximado USD por sesión/día.
-- F1: desbloqueo de skills por nivel de XP (hoy solo muestra niveles).
-- Limpieza legado: `activate.ps1` / `evenatan-ui.ps1` (marcado deprecado, no borrado).
-- Handles abiertos de SQLite en fixtures de tests: corregir la causa raíz; `--test-force-exit` es una mitigación.
+- ~~F2 temas: aplicar el tema elegido (`argos theme set X`) a las UI reales~~ — Hecho (`b55228f`).
+- ~~F3 stats: costo aproximado USD por sesión/día~~ — Hecho (`b55228f`).
+- ~~F1: desbloqueo de skills por nivel de XP~~ — Hecho (`cef365c`).
+- ~~Limpieza legado: `activate.ps1` / `evenatan-ui.ps1`~~ — Hecho, movidos a `legacy/` (`cef365c`).
+- ~~Handles abiertos de SQLite en fixtures de tests: corregir la causa raíz~~ — Hecho (`932ff57`).
 - Si la prueba real falla en la cadena quest/party: depurar con el stub `tests/stubs/fake-cycle.ps1`.
+- Racha (streak) de quests en `argos stats` — nuevo pendiente menor.
 
 ### Regla de retoma
 Cuando el usuario diga "continua", leer este bloque + `README.md` y seguir con lo pendiente
 en el orden: prueba real del usuario → ajustes que surjan → F4 marketplace → mejoras FDD.
 
 ### PRÓXIMO TRABAJO DE CÓDIGO (cuando el usuario diga "seguimos") — en este orden
-1. **Aplicar el tema elegido a las UI reales** — `argos theme set X` hoy solo persiste en
-   `config.json`; falta que las UI (argos-chat, argos-xp, argos-stats, argos-status, evenatan-ui)
-   usen el color de acento del tema activo.
-2. **Costo aprox. USD en stats** — `argos stats` hoy muestra tokens; falta estimar USD por
-   proveedor/precio (catálogo de precios en `cli/model-catalog.ps1` o tabla local).
-3. **Desbloqueo de skills por nivel de XP** — hoy XP solo muestra niveles; falta que cada nivel
-   desbloquee skills (mapa nivel→skill en config o `core/skills`).
-4. **Limpiar el legado** — `activate.ps1` / `evenatan-ui.ps1` / `activate.sh` están marcados
-   deprecados; decidir si se borran (verificar referencias en install/atlas/argos primero) o se
-   mueven a un `legacy/` documentado.
+1. ~~**Aplicar el tema elegido a las UI reales**~~ — Hecho (commit `b55228f`). `argos theme set X`
+   aplica el color de acento a `argos-chat`, `argos-xp` y `argos-stats` vía `cli/theme-colors.ps1`.
+2. ~~**Costo aprox. USD en stats**~~ — Hecho (commit `b55228f`). `argos stats` muestra USD por
+   agente y por día usando `cli/pricing.ps1`.
+3. ~~**Desbloqueo de skills por nivel de XP**~~ — Hecho (commit `cef365c`). `argos xp` muestra
+   skills desbloqueadas por nivel usando `cli/skill-unlocks.ps1`.
+4. ~~**Limpiar el legado**~~ — Hecho (commit `cef365c`). `activate.ps1`, `evenatan-ui.ps1` y
+   `activate.sh` movidos a `legacy/` con `README.md` explicativo.
+5. **(NUEVO) Racha de quests en `argos stats`** — mostrar streaks (días consecutivos con quests,
+   mejor racha histórica) usando `quest-ledger.json`.
+6. **(NUEVO) Marketplace F4** — publicar en Smithery y skills.sh (requiere `npm publish` antes).
 
 ### IMPORTANTE: registro de uso del usuario
 - `.arnes/quest-ledger.json` y `.arnes/model-assignments.json` se modifican CADA vez que el
