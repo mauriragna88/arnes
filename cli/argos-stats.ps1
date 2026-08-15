@@ -119,6 +119,20 @@ foreach ($dayKey in $sortedDays) {
 $successPct = [math]::Round(($passCount / $quests.Count) * 100, 1)
 $topAgent = ($byAgent.GetEnumerator() | Sort-Object { $_.Value.tokens } -Descending | Select-Object -First 1)
 
+# === Cache hit/miss agregado (deepseek prompt caching) ===
+$totalCacheHit = 0
+$totalCacheMiss = 0
+foreach ($q in $quests) {
+    if ($q.cache_hit) { $totalCacheHit += [int]$q.cache_hit }
+    if ($q.cache_miss) { $totalCacheMiss += [int]$q.cache_miss }
+}
+$cacheSavings = 0.0
+if ($totalCacheHit -gt 0) {
+    # Calcular savings: cache hit = 1/4 del precio normal vs pagar precio completo
+    $normalPrice = 0.21 / 1000000.0   # fallback Flash
+    $cacheSavings = $totalCacheHit * $normalPrice * 0.75   # 75% de descuento en cache hit
+}
+
 Write-Host ''
 Write-Host '  ARNES ARGOS - STATS' -ForegroundColor $theme.Primary
 Write-Host '  ==================' -ForegroundColor $theme.Primary
@@ -144,5 +158,17 @@ Write-Host '  Por agente:' -ForegroundColor $theme.Primary
 foreach ($a in ($byAgent.GetEnumerator() | Sort-Object { $_.Value.tokens } -Descending)) {
     $agentCostStr = ('${0:N2}' -f $a.Value.cost)
     Write-Host ("    {0,-12} {1} tkns - {2} · {3} quests" -f $a.Key, $a.Value.tokens, $agentCostStr, $a.Value.quests) -ForegroundColor $theme.Accent
+}
+
+# === Seccion de cache (solo si hay datos) ===
+if ($totalCacheHit -gt 0 -or $totalCacheMiss -gt 0) {
+    $totalInputTokens = $totalCacheHit + $totalCacheMiss
+    $cachePct = if ($totalInputTokens -gt 0) { [math]::Round(($totalCacheHit / $totalInputTokens) * 100, 1) } else { 0 }
+    $savingsStr = ('${0:N2}' -f $cacheSavings)
+    Write-Host ''
+    Write-Host '  Cache de prefijo (DeepSeek/OpenAI):' -ForegroundColor $theme.Primary
+    Write-Host ("    Cache hit:     {0} tkns ({1}%)" -f $totalCacheHit, $cachePct) -ForegroundColor $theme.Accent
+    Write-Host ("    Cache miss:    {0} tkns" -f $totalCacheMiss) -ForegroundColor $theme.Accent
+    Write-Host ("    Ahorro est.:   {0} USD" -f $savingsStr) -ForegroundColor Green
 }
 Write-Host ''

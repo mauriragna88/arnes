@@ -10,7 +10,9 @@ param(
     [string]$Platform = "opencode",
     [string]$Status = "completed",
     [string]$Agents = "",
-    [int]$DurationSeconds = 0
+    [int]$DurationSeconds = 0,
+    [int]$CacheHitTokens = 0,
+    [int]$CacheMissTokens = 0
 )
 
 $ROOT = $PSScriptRoot
@@ -53,6 +55,8 @@ $entry = [PSCustomObject]@{
     tokens_used    = $TokensUsed
     duration_sec   = $DurationSeconds
     agents         = $Agents
+    cache_hit      = $CacheHitTokens
+    cache_miss     = $CacheMissTokens
     started_at     = (Get-Date -Format "o")
 }
 
@@ -82,6 +86,10 @@ Write-Host ""
 Write-Host "  Quest:           $QuestName"
 Write-Host "  Tokens used:     $TokensUsed"
 Write-Host "  Platform:        $Platform"
+if ($CacheHitTokens -gt 0) {
+    $cachePct = [math]::Round(($CacheHitTokens / [Math]::Max($TokensUsed, 1)) * 100, 0)
+    Write-Host "  Cache hit:       $CacheHitTokens tkns ($cachePct%) - ahorro activo" -ForegroundColor Green
+}
 Write-Host ""
 $pct = [int](($ledger.limits.weekly_tokens_used / $ledger.limits.weekly_tokens_budget) * 100)
 Write-Host "  Budget semanal:  $($ledger.limits.weekly_tokens_budget) tokens"

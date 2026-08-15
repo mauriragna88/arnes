@@ -39,3 +39,75 @@ function Get-ModelPricePerToken {
     # Fallback generico para modelos desconocidos: $0.35 por 1M tokens
     return [double](0.35 / 1000000.0)
 }
+
+<#
+.SYNOPSIS
+Calcula el costo estimado considerando cache hit/miss de DeepSeek.
+
+.DESCRIPTION
+DeepSeek cobra 3 precios para input tokens:
+- Cache miss: precio completo (ej: $0.27/1M para Flash)
+- Cache hit: 4x mas barato (ej: $0.07/1M para Flash)
+- Cache storage: = cache miss (se amortiza en peticiones siguientes)
+
+Esta funcion recibe el total de tokens, cuantos fueron cache hit, el modelo,
+y devuelve el costo REAL considerando el descuento de cache.
+
+.EXAMPLE
+Get-ModelCostWithCache -Model 'deepseek-v4-flash' -TotalTokens 5000 -CacheHitTokens 3000
+#>
+function Get-ModelCostWithCache {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$ModelName,
+
+        [Parameter(Mandatory = $true)]
+        [int]$TotalTokens,
+
+        [int]$CacheHitTokens = 0
+    )
+
+    if ($TotalTokens -le 0) { return 0.0 }
+
+    $normalPrice = Get-ModelPricePerToken $ModelName
+    $cacheHitTokens = [math]::Max(0, [math]::Min($CacheHitTokens, $TotalTokens))
+    $cacheMissTokens = $TotalTokens - $cacheHitTokens
+
+    # DeepSeek: cache hit cuesta 4x menos (1/4 del precio normal)
+    # Otros modelos (OpenAI o4/o3, Qwen3.8): tambien aplican descuento de cache
+    $cacheHitPrice = $normalPrice / 4.0
+
+    $cost = ($cacheMissTokens * $normalPrice) + ($cacheHitTokens * $cacheHitPrice)
+    return [double]$cost
+}
+
+<#
+.SYNOPSIS
+Calcula el ahorro (savings) en USD por usar cache de prefijo.
+
+.DESCRIPTION
+Devuelve la diferencia entre lo que costaria sin cache vs lo que costo con cache.
+Util para mostrar en argos stats cuanto dinero se ahorra con prompt caching.
+
+.EXAMPLE
+Get-CacheSavings -Model 'deepseek-v4-flash' -TotalTokens 5000 -CacheHitTokens 3000
+#>
+function Get-CacheSavings {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$ModelName,
+
+        [Parameter(Mandatory = $true)]
+        [int]$TotalTokens,
+
+        [int]$CacheHitTokens = 0
+    )
+
+    if ($TotalTokens -le 0 -or $CacheHitTokens -le 0) { return 0.0 }
+
+    $normalPrice = Get-ModelPricePerToken $ModelName
+    $costWithoutCache = $TotalTokens * $normalPrice
+    $costWithCache = Get-ModelCostWithCache -ModelName $ModelName -TotalTokens $TotalTokens -CacheHitTokens $CacheHitTokens
+
+    return [double]($costWithoutCache - $costWithCache)
+}

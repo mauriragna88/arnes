@@ -105,15 +105,22 @@ function Invoke-ArgoQuest {
 - Usa markdown: ## secciones, - listas, 1. pasos numerados.
 '@
 
+    # === SEPARACION PARA CACHE DE PREFIJO (DeepSeek/OpenAI prompt caching) ===
+    # $system = prompt ESTATICO (agent.md + directiva): NO cambia entre turns -> cacheable
+    # $systemDynamic = prompt DINAMICO (memoria + recall + contexto): cambia cada turn
+    # El engine envia system-estatico primero, system-dinamico despues. DeepSeek cobra
+    # cache hit (4x mas barato) en el prefijo estable y solo cache miss en la parte variable.
+    $systemDynamic = ''
+
     # Contexto de memoria (arnes.db): lo que Atlas recuerda de sesiones anteriores
     if ($script:memoryContext) {
-        $system += "`n`n[MEMORIA DEL HARNESS - sesiones anteriores. Usa esto para responder con contexto real, no digas que no tienes memoria si esto esta presente]`n$($script:memoryContext)"
+        $systemDynamic += "`n`n[MEMORIA DEL HARNESS - sesiones anteriores. Usa esto para responder con contexto real, no digas que no tienes memoria si esto esta presente]`n$($script:memoryContext)"
     }
 
     # Recall inteligente (RAG): recuerdos RELEVANTES a esta pregunta en particular
     $recall = Get-Recall $Message
     if ($recall) {
-        $system += "`n`n[RECUERDOS RELEVANTES de este proyecto para esta pregunta. Usalos si aplican]`n$recall"
+        $systemDynamic += "`n`n[RECUERDOS RELEVANTES de este proyecto para esta pregunta. Usalos si aplican]`n$recall"
     }
 
     # Ruta cognitiva (FAST/RECALL/SKILL/DELIBERATE/DEEP) - saber cuando pensar
@@ -137,7 +144,7 @@ function Invoke-ArgoQuest {
     Write-Host ''
 
     $sw = [System.Diagnostics.Stopwatch]::StartNew()
-    $result = & $engine -Model $model -System $system -Session $script:chatSession -Message $Message -MaxTokens $maxTokens
+    $result = & $engine -Model $model -System $system -SystemDynamic $systemDynamic -Session $script:chatSession -Message $Message -MaxTokens $maxTokens
     $sw.Stop()
     $exit = if ($result.ok) { 0 } else { 1 }
     $script:chatModel = $model   # el modelo usado, para el indicador permanente del prompt
@@ -145,6 +152,14 @@ function Invoke-ArgoQuest {
     if ($result.ok) {
         Write-Host ''
         Render-Reply $result.reply
+        # Mostrar cache hit/miss si el proveedor lo reporto
+        if ($result.cache_hit -gt 0 -or $result.cache_miss -gt 0) {
+            $total = [int]$result.cache_hit + [int]$result.cache_miss
+            $pct = if ($total -gt 0) { [math]::Round(([int]$result.cache_hit / $total) * 100, 0) } else { 0 }
+            if ($pct -gt 0) {
+                Write-Host ("  (cache hit: {0} tkns / {1}% - ahorro activo)" -f $result.cache_hit, $pct) -ForegroundColor DarkGray
+            }
+        }
         # Memoria de conversacion multi-turno (ultimas 20)
         $script:chatSession += @{ role = 'user'; content = $Message }, @{ role = 'assistant'; content = $result.reply }
         if ($script:chatSession.Count -gt 20) { $script:chatSession = @($script:chatSession | Select-Object -Last 20) }

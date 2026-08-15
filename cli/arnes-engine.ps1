@@ -15,13 +15,22 @@ Devuelve la respuesta + uso de tokens (prompt/completion).
 .EXAMPLE
 .\arnes-engine.ps1 -Model nvidia/deepseek-ai/deepseek-v4-flash -Message "hola"
 .\arnes-engine.ps1 -Model opencode-go/gpt-5.6-luna -System "Eres Atlas" -Session @(@{role='user';content='hi'}) -Message "continua"
+.\arnes-engine.ps1 -Model opencode-go/deepseek-v4-flash -System "Identidad RPG y skills cacheable" -SystemDynamic "Memoria y contexto del quest" -Message "haz login"
 #>
 [CmdletBinding()]
 param(
     [Parameter(Mandatory = $true)]
     [string]$Model,           # id completo: nvidia/deepseek-ai/deepseek-v4-flash
 
-    [string]$System = '',
+    [string]$System = '',     # system prompt LEGACY (un solo bloque). Se envia como system
+                              # estatico si no se pasa $SystemDynamic; si se pasa ambos,
+                              # $System va como prefijo estable (cacheable) y
+                              # $SystemDynamic como system message adicional despues.
+
+    [string]$SystemDynamic = '',  # system prompt DINAMICO (memoria, contexto del quest).
+                                   # Se envia DESPUES de $System para no romper el prefijo
+                                   # cacheable. DeepSeek/OpenAI cachean el prefijo estable
+                                   # ($System) y solo cobran cache miss en la parte variable.
 
     [string]$Message = '',
 
@@ -95,19 +104,28 @@ $baseUrl = switch ($provider) {
     default       { '' }
 }
 if (-not $baseUrl) {
-    Write-Output ([pscustomobject]@{ ok = $false; reply = ''; model = $Model; provider = $provider; error = "Proveedor '$provider' sin endpoint nativo en ARNES."; usage = $null })
+    Write-Output ([pscustomobject]@{ ok = $false; reply = ''; model = $Model; provider = $provider; error = "Proveedor '$provider' sin endpoint nativo en ARNES."; usage = $null; cache_hit = 0; cache_miss = 0 })
     exit 0
 }
 
 $cred = Resolve-ApiKey $provider
 if (-not $cred) {
-    Write-Output ([pscustomobject]@{ ok = $false; reply = ''; model = $Model; provider = $provider; error = "Sin credenciales para '$provider'. Corre: argos connect"; usage = $null })
+    Write-Output ([pscustomobject]@{ ok = $false; reply = ''; model = $Model; provider = $provider; error = "Sin credenciales para '$provider'. Corre: argos connect"; usage = $null; cache_hit = 0; cache_miss = 0 })
     exit 0
 }
 
 # === Construir mensajes (sanitizados) ===
+# ORDEN CRITICO PARA CACHE DE PREFIJO:
+#   1. system (estatico)   <- cacheable: AGENTS.md, identity, skills (NO cambia entre turns)
+#   2. system (dinamico)   <- NO cacheable: memoria, recall, contexto del quest actual
+#   3. session[0..N-1]      <- crece con cada turno (parcialmente cacheable si estable)
+#   4. message (nuevo)     <- NO cacheable: cambia cada turno
+# DeepSeek/OpenAI cachean el prefijo estable (system estatico) y cobran cache hit
+# (4x mas barato) en vez de cache miss. El system dinamico va despues para no romper
+# el prefijo cacheable del system estatico.
 $messages = @()
 if ($System) { $messages += @{ role = 'system'; content = (Sanitize-Text $System) } }
+if ($SystemDynamic) { $messages += @{ role = 'system'; content = (Sanitize-Text $SystemDynamic) } }
 foreach ($m in $Session) {
     if ($m.tool_calls) {
         # Mensaje de asistente con tool_calls (debe serializarse tal cual)
@@ -166,18 +184,38 @@ if (-not $resp -or -not $resp.choices -or $resp.choices.Count -eq 0) {
         ok = $false; reply = ''; model = $Model; api_model = $apiModel; provider = $provider
         error = if ($lastErr) { "HTTP $lastCode - $lastErr" } else { "Respuesta vacia o sin 'choices' de $baseUrl (verifica el endpoint o el modelo '$apiModel')" }
         usage = $null
+        cache_hit = 0
+        cache_miss = 0
     })
     exit 0
 }
 $reply = [string]$resp.choices[0].message.content
 $usage = $resp.usage
+
+# === Capturar metricas de cache (DeepSeek / OpenAI prompt caching) ===
+# DeepSeek devuelve: prompt_cache_hit_tokens, prompt_cache_miss_tokens
+# OpenAI devuelve:   prompt_tokens_details.cached_tokens
+# Guardamos ambos formatos para que argos-stats pueda calcular el ahorro.
+$cacheHit = 0
+$cacheMiss = 0
+if ($usage) {
+    if ($usage.prompt_cache_hit_tokens) { $cacheHit = [int]$usage.prompt_cache_hit_tokens }
+    if ($usage.prompt_cache_miss_tokens) { $cacheMiss = [int]$usage.prompt_cache_miss_tokens }
+    # OpenAI formato anidado
+    if ($usage.prompt_tokens_details -and $usage.prompt_tokens_details.cached_tokens) {
+        $cacheHit = [int]$usage.prompt_tokens_details.cached_tokens
+    }
+}
+
 $ErrorActionPreference = $prevEap
 Write-Output ([pscustomobject]@{
-    ok         = $true
-    reply      = $reply.Trim()
-    tool_calls = $resp.choices[0].message.tool_calls
-    model      = $Model
-    api_model  = $apiModel
-    provider   = $provider
-    usage      = $usage
+    ok              = $true
+    reply           = $reply.Trim()
+    tool_calls      = $resp.choices[0].message.tool_calls
+    model           = $Model
+    api_model       = $apiModel
+    provider        = $provider
+    usage           = $usage
+    cache_hit       = $cacheHit
+    cache_miss      = $cacheMiss
 })
