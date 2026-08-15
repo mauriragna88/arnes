@@ -176,7 +176,7 @@ Este archivo resume el estado heredado; el plan futuro vive en PLAN-ARNES.md.
 - ~~Limpieza legado: `activate.ps1` / `evenatan-ui.ps1`~~ — Hecho, movidos a `legacy/` (`cef365c`).
 - ~~Handles abiertos de SQLite en fixtures de tests: corregir la causa raíz~~ — Hecho (`932ff57`).
 - Si la prueba real falla en la cadena quest/party: depurar con el stub `tests/stubs/fake-cycle.ps1`.
-- Racha (streak) de quests en `argos stats` — nuevo pendiente menor.
+- ~~Racha (streak) de quests en `argos stats`~~ — Hecho (`b2ee623`): muestra racha actual + mejor racha histórica.
 
 ### Regla de retoma
 Cuando el usuario diga "continua", leer este bloque + `README.md` y seguir con lo pendiente
@@ -191,8 +191,8 @@ en el orden: prueba real del usuario → ajustes que surjan → F4 marketplace �
    skills desbloqueadas por nivel usando `cli/skill-unlocks.ps1`.
 4. ~~**Limpiar el legado**~~ — Hecho (commit `cef365c`). `activate.ps1`, `evenatan-ui.ps1` y
    `activate.sh` movidos a `legacy/` con `README.md` explicativo.
-5. **(NUEVO) Racha de quests en `argos stats`** — mostrar streaks (días consecutivos con quests,
-   mejor racha histórica) usando `quest-ledger.json`.
+5. ~~**(NUEVO) Racha de quests en `argos stats`**~~ — Hecho (commit `b2ee623`). Muestra racha
+   actual y mejor racha histórica de días consecutivos con quests usando `quest-ledger.json`.
 6. **(NUEVO) Marketplace F4** — publicar en Smithery y skills.sh (requiere `npm publish` antes).
 
 ### IMPORTANTE: registro de uso del usuario
